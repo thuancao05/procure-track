@@ -10,9 +10,9 @@ export async function GET() {
   const supabase = createUserClient(accessToken);
 
   const [productsRes, channelsRes, paymentsRes] = await Promise.all([
-    supabase.from('products').select('sku, ten_hang_hoa').order('sku'),
-    supabase.from('purchase_channels').select('name').order('sort_order').order('name'),
-    supabase.from('payment_methods').select('name').order('sort_order').order('name'),
+    supabase.from('products').select('sku, ten_hang_hoa').eq('is_active', true).order('sku'),
+    supabase.from('purchase_channels').select('name').eq('is_active', true).order('sort_order').order('name'),
+    supabase.from('payment_methods').select('name').eq('is_active', true).order('sort_order').order('name'),
   ]);
 
   const error = productsRes.error || channelsRes.error || paymentsRes.error;
