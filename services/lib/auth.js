@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createAuthClient, isSupabaseConfigured } from './supabase';
+import { createAuthClient, isAdminConfigured, isSupabaseConfigured } from './supabase';
 
 const ACCESS_COOKIE = 'pt-access-token';
 const REFRESH_COOKIE = 'pt-refresh-token';
@@ -75,5 +75,27 @@ export async function requireUser() {
   return { errorResponse: json(401, 'Chưa đăng nhập hoặc phiên đã hết hạn.') };
 }
 
+export const ROLES = ['admin', 'staff'];
+
+/** Vai trò lưu trong app_metadata (user không tự sửa được). Mặc định: staff. */
+export const getRole = (user) => (user?.app_metadata?.role === 'admin' ? 'admin' : 'staff');
+
 /** Thông tin user an toàn để trả về FE. */
-export const publicUser = (user) => ({ id: user.id, email: user.email });
+export const publicUser = (user) => ({ id: user.id, email: user.email, role: getRole(user) });
+
+/**
+ * Như requireUser() nhưng chỉ cho phép role admin.
+ * getUser() đọc user mới nhất từ Supabase Auth nên vai trò luôn cập nhật.
+ */
+export async function requireAdmin() {
+  const result = await requireUser();
+  if (result.errorResponse) return result;
+
+  if (getRole(result.user) !== 'admin') {
+    return { errorResponse: json(403, 'Bạn không có quyền quản trị.') };
+  }
+  if (!isAdminConfigured) {
+    return { errorResponse: json(500, 'Server chưa cấu hình SUPABASE_SECRET_KEY.') };
+  }
+  return result;
+}
