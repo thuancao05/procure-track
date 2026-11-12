@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { inputClass, labelClass, selectClass } from '../ui';
 
 // Kênh mua, SKU, Tên hàng hóa, Thanh toán được chọn từ danh mục (backend đọc từ Supabase)
 const INITIAL_FORM = {
@@ -16,7 +17,7 @@ const INITIAL_FORM = {
   maVanDon: 'SPX123',
 };
 
-export default function HomeDashboard({ user, onLogout }) {
+export default function HomeDashboard() {
   const [formData, setFormData] = useState(INITIAL_FORM);
 
   // Danh mục từ backend (/api/lookups)
@@ -167,31 +168,15 @@ export default function HomeDashboard({ user, onLogout }) {
     }
   };
 
-  const inputClass =
-    "w-full px-3 py-3 sm:py-2 bg-white border border-slate-300 rounded-lg text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
-  const selectClass = `${inputClass} disabled:bg-slate-100 disabled:text-slate-400`;
-  const labelClass = "block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1";
-
   return (
-    <div className="min-h-svh bg-slate-50 sm:py-8 sm:px-6 lg:px-8 font-sans text-slate-800 text-left">
-      <div className="max-w-3xl mx-auto bg-white sm:rounded-2xl sm:shadow-lg sm:border border-slate-100">
-        {/* Header */}
-        <div className="bg-blue-600 px-4 py-4 sm:px-6 sm:py-5 text-white sm:rounded-t-2xl flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Quản Lý Nhập Hàng Hóa</h1>
-            <p className="text-blue-100 text-xs sm:text-sm mt-1">Procure-Track • Chứng minh nguồn gốc hàng hóa pháp lý</p>
-            <p className="text-blue-200 text-xs mt-1 truncate">👤 {user?.email}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="shrink-0 text-xs sm:text-sm font-medium bg-white/15 hover:bg-white/25 active:bg-white/30 px-3 py-2 rounded-lg"
-          >
-            Đăng xuất
-          </button>
+    <div className="max-w-3xl mx-auto">
+      <div className="bg-white sm:rounded-2xl sm:shadow-sm sm:border border-slate-200">
+        <div className="px-4 sm:px-8 pt-4 sm:pt-6">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-800">Quản Lý Nhập Hàng Hóa</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Chứng minh nguồn gốc hàng hóa pháp lý</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-5 sm:space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-8 sm:pt-5 space-y-5 sm:space-y-6">
           {lookupError && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{lookupError}</p>
           )}

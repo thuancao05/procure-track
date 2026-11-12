@@ -15,6 +15,18 @@ export function createAuthClient() {
   return createClient(supabaseUrl, supabaseKey, serverOptions);
 }
 
+// Secret key (sb_secret_...) hoặc legacy service_role key — CHỈ dùng ở server, bỏ qua RLS.
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+export const isAdminConfigured = Boolean(supabaseUrl && supabaseSecretKey);
+
+/**
+ * Client quyền quản trị: quản lý user (auth.admin) và ghi danh mục.
+ * Chỉ gọi sau khi đã kiểm tra requireAdmin().
+ */
+export function createAdminClient() {
+  return createClient(supabaseUrl, supabaseSecretKey, serverOptions);
+}
+
 /**
  * Client chạy truy vấn với quyền của user đã đăng nhập,
  * để Row Level Security (role `authenticated`) được áp dụng.
