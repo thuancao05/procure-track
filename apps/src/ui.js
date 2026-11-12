@@ -5,7 +5,7 @@ export const selectClass = `${inputClass} disabled:bg-slate-100 disabled:text-sl
 export const labelClass = 'block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1';
 
 export const primaryButtonClass =
-  'inline-flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium text-base sm:text-sm py-3 sm:py-2 px-4 rounded-lg shadow-sm transition disabled:bg-blue-300';
+  'inline-flex items-center justify-center gap-1 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium text-base sm:text-sm py-3 sm:py-2 px-4 rounded-lg shadow-sm transition disabled:bg-blue-200';
 export const secondaryButtonClass =
   'inline-flex items-center justify-center gap-1 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-300 font-medium text-base sm:text-sm py-3 sm:py-2 px-4 rounded-lg transition disabled:opacity-50';
 export const dangerButtonClass =

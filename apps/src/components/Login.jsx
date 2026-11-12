@@ -25,10 +25,11 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="min-h-svh bg-slate-50 flex items-start sm:items-center justify-center sm:px-6 font-sans text-slate-800 text-left">
-      <div className="w-full max-w-md bg-white sm:rounded-2xl sm:shadow-lg sm:border border-slate-100">
-        <div className="bg-blue-600 px-4 py-4 sm:px-6 sm:py-5 text-white sm:rounded-t-2xl">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Đăng nhập</h1>
-          <p className="text-blue-100 text-xs sm:text-sm mt-1">Procure-Track • Quản Lý Nhập Hàng Hóa</p>
+      <div className="w-full max-w-md bg-white sm:rounded-2xl sm:shadow-sm sm:border border-slate-200">
+        <div className="bg-gradient-to-b from-blue-50 to-white px-4 pt-6 pb-2 sm:px-8 sm:pt-8 sm:rounded-t-2xl">
+          <p className="text-sm font-semibold text-blue-600">Ghi Nhận Đơn Hàng</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-800 mt-1">Đăng nhập</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">Đăng nhập để ghi nhận đơn nhập hàng</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-4">
@@ -63,7 +64,7 @@ export default function Login({ onLogin }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium text-base py-3.5 sm:py-3 px-4 rounded-xl shadow transition duration-150 disabled:bg-blue-300"
+            className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium text-base py-3.5 sm:py-3 px-4 rounded-xl shadow-sm transition duration-150 disabled:bg-blue-200"
           >
             {loading ? '⏳ Đang đăng nhập...' : 'Đăng nhập'}
           </button>

@@ -339,7 +339,7 @@ export default function HomeDashboard() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium text-base py-3.5 sm:py-3 px-4 rounded-xl shadow transition duration-150 disabled:bg-blue-300"
+              className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium text-base py-3.5 sm:py-3 px-4 rounded-xl shadow-sm transition duration-150 disabled:bg-blue-200"
             >
               {submitting ? "⏳ Đang xử lý tạo thư mục, ghi Sheet & tải ảnh..." : "💾 Lưu Đơn Hàng & Ghi Nhật Ký"}
             </button>
