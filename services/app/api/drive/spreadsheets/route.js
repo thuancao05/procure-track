@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
 
 const oauth2Client = new google.auth.OAuth2(
@@ -14,6 +15,9 @@ oauth2Client.setCredentials({
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 export async function GET(request) {
+  const { errorResponse } = await requireUser();
+  if (errorResponse) return errorResponse;
+
   try {
     const { searchParams } = new URL(request.url);
     const folderId = searchParams.get('folderId');

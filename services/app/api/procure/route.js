@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 
@@ -16,6 +17,9 @@ const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
 export async function POST(request) {
+  const { errorResponse } = await requireUser();
+  if (errorResponse) return errorResponse;
+
   try {
     const formData = await request.formData();
     

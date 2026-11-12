@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
 
 const oauth2Client = new google.auth.OAuth2(
@@ -14,6 +15,9 @@ oauth2Client.setCredentials({
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 export async function GET() {
+  const { errorResponse } = await requireUser();
+  if (errorResponse) return errorResponse;
+
   try {
     const response = await drive.files.list({
       q: "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
