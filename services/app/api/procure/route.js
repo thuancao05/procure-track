@@ -15,6 +15,21 @@ oauth2Client.setCredentials({
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
+// ID của Google Drive / Sheets chỉ gồm chữ, số, '-' và '_'.
+// Chặn mọi ký tự khác (đặc biệt là dấu ') để không thể chèn thêm điều kiện vào câu truy vấn q.
+const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+// Ngày từ <input type="date"> luôn có dạng YYYY-MM-DD.
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// Chống chèn công thức (formula injection) vào Google Sheets.
+// Với valueInputOption "USER_ENTERED", chuỗi bắt đầu bằng = + - @ sẽ bị hiểu là công thức.
+// Thêm dấu ' ở đầu để Sheets coi đó là chữ thường (dấu ' không hiển thị trong ô).
+function asSheetText(value) {
+  const text = value == null ? '' : String(value);
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
 export async function POST(request) {
   try {
     const formData = await request.formData();
@@ -45,6 +60,14 @@ export async function POST(request) {
 
     if (!spreadsheetId) {
       return NextResponse.json({ success: false, error: "Thiếu Spreadsheet ID để ghi nhật ký!" }, { status: 400 });
+    }
+
+    if (!DATE_PATTERN.test(ngay)) {
+      return NextResponse.json({ success: false, error: "Ngày nhập hàng không đúng định dạng YYYY-MM-DD!" }, { status: 400 });
+    }
+
+    if (!DRIVE_ID_PATTERN.test(spreadsheetId) || !DRIVE_ID_PATTERN.test(rootFolderId || '')) {
+      return NextResponse.json({ success: false, error: "ID thư mục hoặc Spreadsheet không hợp lệ!" }, { status: 400 });
     }
 
     // --- PHẦN 1: XỬ LÝ GOOGLE DRIVE (Tạo thư mục Tháng & Đơn hàng) ---
@@ -147,18 +170,19 @@ export async function POST(request) {
     }
 
     // Chuẩn bị dòng dữ liệu chèn vào bảng của tháng tương ứng
+    // Các cột chữ đi qua asSheetText() để không bị Sheets hiểu nhầm thành công thức
     const rowData = [
       ngay,
-      kenhMua,
-      maDonHang,
-      tenShop,
-      sku,
-      tenHangHoa,
+      asSheetText(kenhMua),
+      asSheetText(maDonHang),
+      asSheetText(tenShop),
+      asSheetText(sku),
+      asSheetText(tenHangHoa),
       Number(soLuong),
       Number(giaGoc),
       Number(giaThucTra),
-      phuongThucThanhToan,
-      maVanDon,
+      asSheetText(phuongThucThanhToan),
+      asSheetText(maVanDon),
       subFolderLink, // Link chứng từ trỏ đến thư mục Google Drive của đơn hàng
     ];
 
