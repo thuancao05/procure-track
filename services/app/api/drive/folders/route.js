@@ -28,6 +28,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       folders: response.data.files,
+      defaultFolderId: process.env.GOOGLE_PARENT_FOLDER_ID ?? '',
+      defaultSpreadsheetId: process.env.GOOGLE_SPREADSHEET_ID ?? '',
     });
   } catch (error) {
     console.error("Lỗi Google Drive:", error);
