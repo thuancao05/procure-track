@@ -38,7 +38,9 @@ export default function HomeDashboard() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [cameraMessage, setCameraMessage] = useState('');
-  const [qrOpen, setQrOpen] = useState(false);
+  // Ô đang được quét QR: 'maVanDon' | 'maDonHang' | null (đóng)
+  const [qrTarget, setQrTarget] = useState(null);
+  const qrOpen = qrTarget !== null;
   const [qrError, setQrError] = useState('');
   const nativeQrScannerEnabled = false;
   const videoRef = useRef(null);
@@ -93,6 +95,11 @@ export default function HomeDashboard() {
     };
   }, [cameraOpen]);
 
+  const openQrScanner = (field) => {
+    setQrError('');
+    setQrTarget(field);
+  };
+
   useEffect(() => {
     if (!qrOpen || !nativeQrScannerEnabled) return undefined;
 
@@ -124,8 +131,8 @@ export default function HomeDashboard() {
             const codes = await detector.detect(qrVideoRef.current);
             const value = codes[0]?.rawValue?.trim();
             if (value) {
-              setFormData((current) => ({ ...current, maVanDon: value }));
-              setQrOpen(false);
+              setFormData((current) => ({ ...current, [qrTarget]: value }));
+              setQrTarget(null);
               return;
             }
           } catch {
@@ -146,7 +153,7 @@ export default function HomeDashboard() {
       qrStreamRef.current?.getTracks().forEach((track) => track.stop());
       qrStreamRef.current = null;
     };
-  }, [qrOpen]);
+  }, [qrTarget]);
 
   useEffect(() => {
     if (!qrOpen) return undefined;
@@ -161,9 +168,9 @@ export default function HomeDashboard() {
           { fps: 10, qrbox: { width: 250, height: 180 } },
           (decodedText) => {
             if (stopped) return;
-            setFormData((current) => ({ ...current, maVanDon: decodedText.trim() }));
+            setFormData((current) => ({ ...current, [qrTarget]: decodedText.trim() }));
             stopped = true;
-            setQrOpen(false);
+            setQrTarget(null);
           },
           () => {}
         );
@@ -185,7 +192,7 @@ export default function HomeDashboard() {
           }
         });
     };
-  }, [qrOpen]);
+  }, [qrTarget]);
 
   // 0. Tải danh mục Hàng hóa / Kênh mua / Phương thức thanh toán từ backend
   useEffect(() => {
@@ -472,7 +479,12 @@ export default function HomeDashboard() {
 
             <div>
               <label className={labelClass}>Mã đơn hàng</label>
-              <input type="text" name="maDonHang" autoCapitalize="characters" value={formData.maDonHang} placeholder="VD: DH123456" onChange={handleChange} className={inputClass} required />
+              <div className="flex gap-2">
+                <input type="text" name="maDonHang" autoCapitalize="characters" value={formData.maDonHang} placeholder="VD: DH123456" onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} required />
+                <button type="button" onClick={() => openQrScanner('maDonHang')} className="shrink-0 px-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100" title="Quét mã đơn hàng">
+                  📷 Quét QR
+                </button>
+              </div>
             </div>
 
             <div>
@@ -569,7 +581,7 @@ export default function HomeDashboard() {
               <label className={labelClass}>Mã Vận đơn</label>
               <div className="flex gap-2">
                 <input type="text" name="maVanDon" autoCapitalize="characters" value={formData.maVanDon} placeholder="VD: SPXVN..." onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} required />
-                <button type="button" onClick={() => { setQrError(''); setQrOpen(true); }} className="shrink-0 px-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100" title="Quét mã QR">
+                <button type="button" onClick={() => openQrScanner('maVanDon')} className="shrink-0 px-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100" title="Quét mã QR">
                   📷 Quét QR
                 </button>
               </div>
@@ -652,8 +664,8 @@ export default function HomeDashboard() {
             <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Quét mã QR">
               <div className="w-full max-w-lg bg-white rounded-2xl p-4 shadow-xl">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold text-slate-800">Quét mã QR vận đơn</h2>
-                  <button type="button" onClick={() => setQrOpen(false)} className="text-slate-500 hover:text-slate-800 text-xl" aria-label="Đóng quét QR">×</button>
+                  <h2 className="font-semibold text-slate-800">{qrTarget === 'maDonHang' ? 'Quét mã đơn hàng' : 'Quét mã QR vận đơn'}</h2>
+                  <button type="button" onClick={() => setQrTarget(null)} className="text-slate-500 hover:text-slate-800 text-xl" aria-label="Đóng quét QR">×</button>
                 </div>
                 {qrError ? (
                   <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{qrError}</p>
@@ -661,7 +673,7 @@ export default function HomeDashboard() {
                   <div id="qr-reader" className="w-full min-h-64 overflow-hidden rounded-xl bg-slate-900" />
                 )}
                 <p className="text-xs text-slate-500 mt-3">Đưa mã QR vào giữa khung hình; mã sẽ được điền tự động.</p>
-                <button type="button" onClick={() => setQrOpen(false)} className="w-full mt-4 py-3 rounded-xl border border-slate-300 text-slate-700">Đóng</button>
+                <button type="button" onClick={() => setQrTarget(null)} className="w-full mt-4 py-3 rounded-xl border border-slate-300 text-slate-700">Đóng</button>
               </div>
             </div>
           )}
