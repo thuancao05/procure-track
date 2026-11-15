@@ -4,7 +4,7 @@
 
 **Tên hệ thống:** Procure Track
 
-**Mục đích:** Ghi nhận đơn hàng nhập vào, lưu chứng từ lên Google Drive và ghi nhật ký đơn hàng vào Google Sheets.
+**Mục đích:** Ghi nhận đơn hàng nhập vào, lưu chứng từ lên Google Drive và ghi nhật ký đơn hàng vào Google Sheets. Giúp người bán hàng dễ dàng lưu trữ các đơn nhập hàng của họ
 
 **Đối tượng sử dụng:**
 
