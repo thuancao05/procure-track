@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../services/api';
 import { inputClass, labelClass, selectClass } from '../ui';
@@ -21,6 +21,11 @@ const INITIAL_FORM = {
 const formatThousandUnits = (value) => {
   const digits = String(value ?? '').replace(/\D/g, '');
   return digits ? Number(digits).toLocaleString('vi-VN') : '';
+};
+
+const getSheetTitle = (dateValue) => {
+  const [year, month] = String(dateValue || '').split('-');
+  return year && month ? `Tháng ${Number(month)}/${year}` : '';
 };
 
 export default function HomeDashboard() {
@@ -64,6 +69,29 @@ export default function HomeDashboard() {
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [sheetHeaders, setSheetHeaders] = useState([]);
+  const [sheetRows, setSheetRows] = useState([]);
+  const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetLoadingMore, setSheetLoadingMore] = useState(false);
+  const [sheetHasMore, setSheetHasMore] = useState(false);
+  const [sheetError, setSheetError] = useState('');
+  const [sheetReloadKey, setSheetReloadKey] = useState(0);
+  const [sheetSortColumn, setSheetSortColumn] = useState(0);
+  const [sheetSortDirection, setSheetSortDirection] = useState('desc');
+
+  const sortedSheetRows = useMemo(() => {
+    const collator = new Intl.Collator('vi', { numeric: true, sensitivity: 'base' });
+    return sheetRows
+      .map((row, index) => ({ row, index }))
+      .sort((a, b) => {
+        const left = String(a.row[sheetSortColumn] ?? '');
+        const right = String(b.row[sheetSortColumn] ?? '');
+        const result = collator.compare(left, right);
+        if (result !== 0) return sheetSortDirection === 'asc' ? result : -result;
+        return sheetSortDirection === 'asc' ? a.index - b.index : b.index - a.index;
+      })
+      .map(({ row }) => row);
+  }, [sheetRows, sheetSortColumn, sheetSortDirection]);
 
   useEffect(() => {
     if (!cameraOpen) return undefined;
@@ -263,6 +291,55 @@ export default function HomeDashboard() {
     }
     fetchSpreadsheetsInFolder();
   }, [selectedFolder, defaultSpreadsheetId]);
+
+  useEffect(() => {
+    const sheetTitle = getSheetTitle(formData.ngay);
+    if (!selectedSpreadsheet || !sheetTitle) {
+      setSheetHeaders([]);
+      setSheetRows([]);
+      setSheetHasMore(false);
+      return undefined;
+    }
+
+    let active = true;
+    setSheetLoading(true);
+    setSheetError('');
+    api.get('/drive/sheet-data', { params: { spreadsheetId: selectedSpreadsheet, sheetTitle, offset: 0, limit: 5 } })
+      .then(({ data }) => {
+        if (!active) return;
+        setSheetHeaders(data.headers ?? []);
+        setSheetRows(data.rows ?? []);
+        setSheetHasMore(Boolean(data.hasMore));
+      })
+      .catch((error) => {
+        if (!active) return;
+        setSheetHeaders([]);
+        setSheetRows([]);
+        setSheetError(error.response?.data?.error ?? 'Không thể tải dữ liệu Spreadsheet.');
+      })
+      .finally(() => {
+        if (active) setSheetLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [selectedSpreadsheet, formData.ngay, sheetReloadKey]);
+
+  const loadMoreSheetRows = async () => {
+    const sheetTitle = getSheetTitle(formData.ngay);
+    if (!selectedSpreadsheet || !sheetTitle || sheetLoadingMore || !sheetHasMore) return;
+    setSheetLoadingMore(true);
+    try {
+      const { data } = await api.get('/drive/sheet-data', {
+        params: { spreadsheetId: selectedSpreadsheet, sheetTitle, offset: sheetRows.length, limit: 5 },
+      });
+      setSheetRows((current) => [...current, ...(data.rows ?? [])]);
+      setSheetHasMore(Boolean(data.hasMore));
+    } catch (error) {
+      setSheetError(error.response?.data?.error ?? 'Không thể tải thêm dữ liệu Spreadsheet.');
+    } finally {
+      setSheetLoadingMore(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -712,6 +789,77 @@ export default function HomeDashboard() {
             </button>
           </div>
         </form>
+
+        {selectedSpreadsheet && (
+          <section className="border-t border-slate-200 px-4 py-4 sm:px-8 sm:py-6" aria-label="Nhật ký nhập hàng">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Nhật ký nhập hàng</h2>
+                <p className="text-xs text-slate-500">{getSheetTitle(formData.ngay)} · chỉ xem</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSheetReloadKey((key) => key + 1)}
+                disabled={sheetLoading}
+                className="shrink-0 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {sheetLoading ? 'Đang tải...' : 'Làm mới'}
+              </button>
+            </div>
+
+            {sheetError ? (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{sheetError}</p>
+            ) : sheetLoading && sheetRows.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4">Đang tải dữ liệu Spreadsheet...</p>
+            ) : sheetHeaders.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4">Tab tháng này chưa có dữ liệu.</p>
+            ) : (
+              <div className="w-full max-w-full max-h-[30rem] overflow-x-auto overflow-y-auto border border-slate-200 rounded-lg">
+                <table className="min-w-max w-full text-xs text-left">
+                  <thead className="sticky top-0 bg-slate-100 text-slate-600">
+                    <tr>
+                      {sheetHeaders.map((header, index) => (
+                        <th key={`${header}-${index}`} className="px-3 py-2 font-semibold whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (sheetSortColumn === index) {
+                                setSheetSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+                              } else {
+                                setSheetSortColumn(index);
+                                setSheetSortDirection('asc');
+                              }
+                            }}
+                            className="hover:text-blue-700"
+                          >
+                            {header} {sheetSortColumn === index ? (sheetSortDirection === 'asc' ? '↑' : '↓') : ''}
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedSheetRows.map((row, rowIndex) => (
+                      <tr key={rowIndex} className="border-t border-slate-100 hover:bg-slate-50">
+                        {sheetHeaders.map((_, columnIndex) => <td key={columnIndex} className="px-3 py-2 whitespace-nowrap text-slate-700">{row[columnIndex] ?? ''}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {sheetHasMore && !sheetError && (
+              <button
+                type="button"
+                onClick={loadMoreSheetRows}
+                disabled={sheetLoadingMore}
+                className="w-full mt-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {sheetLoadingMore ? 'Đang tải thêm...' : 'Tải thêm 5 dòng'}
+              </button>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );

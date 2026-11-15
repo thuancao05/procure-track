@@ -190,6 +190,16 @@ Spreadsheet mặc định lấy từ `GOOGLE_SPREADSHEET_ID` nếu file đó n�
 
 Người dùng vẫn có thể chọn folder hoặc Spreadsheet khác nếu được trả về từ Google Drive.
 
+### 5.7. Viewer nhật ký trên homepage
+
+Homepage có viewer chỉ đọc cho tab tháng tương ứng với ngày nhập đang chọn. Viewer lấy dữ liệu qua backend Google Sheets API, không nhúng iframe và không yêu cầu publish Sheet ra internet.
+
+- Tự tải lại khi đổi ngày hoặc Spreadsheet.
+- Có nút làm mới thủ công.
+- Lần đầu tải tối đa 5 dòng mới nhất; nút **Tải thêm 5 dòng** dùng để lazy load các dòng tiếp theo.
+- Hiển thị header và các dòng dữ liệu trong vùng cuộn.
+- Chỉ user đã đăng nhập mới gọi được viewer.
+
 ## 6. Luồng xử lý tạo đơn hàng
 
 1. Người dùng điền form và chọn folder/Spreadsheet.
@@ -251,6 +261,7 @@ http://localhost:3000/api
 |---|---|---|---|
 | `GET` | `/api/drive/folders` | User | Lấy danh sách folder và cấu hình mặc định |
 | `GET` | `/api/drive/spreadsheets?folderId=...` | User | Lấy Spreadsheet trong folder |
+| `GET` | `/api/drive/sheet-data?spreadsheetId=...&sheetTitle=...` | User | Đọc dữ liệu tab tháng để hiển thị viewer |
 
 ### 7.4. Nhập hàng
 
