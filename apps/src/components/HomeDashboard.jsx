@@ -89,7 +89,14 @@ export default function HomeDashboard() {
   }, [images]);
   const [folders, setFolders] = useState([]);
   const [spreadsheets, setSpreadsheets] = useState([]);
+  const [driveDefaultFolderId, setDriveDefaultFolderId] = useState('');
   const [defaultSpreadsheetId, setDefaultSpreadsheetId] = useState('');
+  const [preferredFolderId, setPreferredFolderId] = useState('');
+  const [preferredSpreadsheetId, setPreferredSpreadsheetId] = useState('');
+  const [foldersLoaded, setFoldersLoaded] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [localPreferencesMode, setLocalPreferencesMode] = useState(false);
+  const [savingDefault, setSavingDefault] = useState('');
   const foldersInTreeOrder = useMemo(() => sortFoldersAsTree(folders), [folders]);
   
   const [selectedFolder, setSelectedFolder] = useState('');
@@ -279,17 +286,50 @@ export default function HomeDashboard() {
         const response = await api.get('/drive/folders');
         if (response.data.success) {
           setFolders(response.data.folders);
-          setSelectedFolder(response.data.defaultFolderId ?? '');
+          setDriveDefaultFolderId(response.data.defaultFolderId ?? '');
           setDefaultSpreadsheetId(response.data.defaultSpreadsheetId ?? '');
         }
       } catch (error) {
         console.error("Không thể tải danh sách thư mục Drive:", error);
       } finally {
         setLoadingFolders(false);
+        setFoldersLoaded(true);
       }
     }
     fetchDriveFolders();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/preferences/drive')
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (data.localOnly) {
+          setLocalPreferencesMode(true);
+          let localPreferences = {};
+          try {
+            localPreferences = JSON.parse(localStorage.getItem('pt-drive-preferences') || '{}');
+          } catch { /* Ignore unavailable or invalid local storage. */ }
+          setPreferredFolderId(localPreferences.defaultFolderId ?? '');
+          setPreferredSpreadsheetId(localPreferences.defaultSpreadsheetId ?? '');
+        } else {
+          setPreferredFolderId(data.preferences.defaultFolderId);
+          setPreferredSpreadsheetId(data.preferences.defaultSpreadsheetId);
+        }
+      })
+      .catch((error) => console.error('Không thể tải thiết lập Drive:', error))
+      .finally(() => {
+        if (!cancelled) setPreferencesLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!foldersLoaded || !preferencesLoaded) return;
+    const preferredFolderExists = folders.some((folder) => folder.id === preferredFolderId);
+    const configuredFolderExists = folders.some((folder) => folder.id === driveDefaultFolderId);
+    setSelectedFolder(preferredFolderExists ? preferredFolderId : configuredFolderExists ? driveDefaultFolderId : '');
+  }, [foldersLoaded, preferencesLoaded, folders, preferredFolderId, driveDefaultFolderId]);
 
   // 2. Khi người dùng thay đổi thư mục chọn ở đầu, tự động quét tìm các Google Spreadsheet nằm trong thư mục đó
   useEffect(() => {
@@ -307,9 +347,8 @@ export default function HomeDashboard() {
           setSpreadsheets(response.data.spreadsheets);
           setSelectedSpreadsheet((current) => {
             if (current && response.data.spreadsheets.some((sheet) => sheet.id === current)) return current;
-            return response.data.spreadsheets.some((sheet) => sheet.id === defaultSpreadsheetId)
-              ? defaultSpreadsheetId
-              : '';
+            if (response.data.spreadsheets.some((sheet) => sheet.id === preferredSpreadsheetId)) return preferredSpreadsheetId;
+            return response.data.spreadsheets.some((sheet) => sheet.id === defaultSpreadsheetId) ? defaultSpreadsheetId : '';
           });
         }
       } catch (error) {
@@ -319,7 +358,7 @@ export default function HomeDashboard() {
       }
     }
     fetchSpreadsheetsInFolder();
-  }, [selectedFolder, defaultSpreadsheetId]);
+  }, [selectedFolder, defaultSpreadsheetId, preferredSpreadsheetId]);
 
   useEffect(() => {
     const sheetTitle = getSheetTitle(formData.ngay);
@@ -423,6 +462,25 @@ export default function HomeDashboard() {
   const lookupPlaceholder = (emptyLabel, list) =>
     loadingLookups ? '⏳ Đang tải...' : list.length === 0 ? '-- Chưa có dữ liệu --' : emptyLabel;
 
+  const saveDriveDefault = async (key, value, successMessage) => {
+    setSavingDefault(key);
+    try {
+      if (localPreferencesMode) {
+        const current = JSON.parse(localStorage.getItem('pt-drive-preferences') || '{}');
+        localStorage.setItem('pt-drive-preferences', JSON.stringify({ ...current, [key]: value }));
+      } else {
+        await api.patch('/preferences/drive', { [key]: value || null });
+      }
+      if (key === 'defaultFolderId') setPreferredFolderId(value ?? '');
+      if (key === 'defaultSpreadsheetId') setPreferredSpreadsheetId(value ?? '');
+      alert(value ? successMessage : 'Đã bỏ thiết lập mặc định.');
+    } catch (error) {
+      alert(error.response?.data?.error ?? 'Không thể lưu thiết lập mặc định.');
+    } finally {
+      setSavingDefault('');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -492,9 +550,21 @@ export default function HomeDashboard() {
           {/* 1. Chọn thư mục Drive */}
           <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-200 space-y-4 sm:space-y-3">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                📂 1. Chọn thư mục gốc trên Google Drive:
-              </label>
+              <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <label className="block text-sm font-semibold text-slate-700">
+                  📂 1. Chọn thư mục gốc trên Google Drive:
+                </label>
+                <label className="inline-flex min-h-11 w-fit items-center gap-2 text-sm text-slate-700 sm:min-h-0">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(selectedFolder && preferredFolderId === selectedFolder)}
+                    onChange={(e) => saveDriveDefault('defaultFolderId', e.target.checked ? selectedFolder : null, 'Đã lưu thư mục mặc định cho tài khoản của bạn.')}
+                    disabled={!selectedFolder || savingDefault !== ''}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+                  />
+                  <span>{savingDefault === 'defaultFolderId' ? 'Đang lưu...' : 'Dùng làm mặc định'}</span>
+                </label>
+              </div>
               <select 
                 value={selectedFolder} 
                 onChange={(e) => setSelectedFolder(e.target.value)}
@@ -512,9 +582,21 @@ export default function HomeDashboard() {
 
             {/* 2. Chọn file Google Spreadsheet nằm trong thư mục đó */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                📊 2. Chọn File Google Spreadsheet (Sổ nhật ký):
-              </label>
+              <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <label className="block text-sm font-semibold text-slate-700">
+                  📊 2. Chọn File Google Spreadsheet (Sổ nhật ký):
+                </label>
+                <label className="inline-flex min-h-11 w-fit items-center gap-2 text-sm text-slate-700 sm:min-h-0">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(selectedSpreadsheet && preferredSpreadsheetId === selectedSpreadsheet)}
+                    onChange={(e) => saveDriveDefault('defaultSpreadsheetId', e.target.checked ? selectedSpreadsheet : null, 'Đã lưu Spreadsheet mặc định cho tài khoản của bạn.')}
+                    disabled={!selectedSpreadsheet || savingDefault !== ''}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+                  />
+                  <span>{savingDefault === 'defaultSpreadsheetId' ? 'Đang lưu...' : 'Dùng làm mặc định'}</span>
+                </label>
+              </div>
               <select 
                 value={selectedSpreadsheet} 
                 onChange={(e) => setSelectedSpreadsheet(e.target.value)}
