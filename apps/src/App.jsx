@@ -6,6 +6,7 @@ import LookupManager from './components/LookupManager';
 import Login from './components/Login';
 import UsersPage from './pages/UsersPage';
 import ResetPassword from './pages/ResetPassword';
+import GoogleSettingsPage from './pages/GoogleSettingsPage';
 import { LOOKUP_CONFIGS } from './pages/lookupConfigs';
 import api, { UNAUTHORIZED_EVENT } from './services/api';
 
@@ -79,6 +80,7 @@ function App() {
           element={adminOnly(<LookupManager key="payment-methods" config={LOOKUP_CONFIGS.paymentMethods} />)}
         />
         <Route path="admin/users" element={adminOnly(<UsersPage currentUser={user} />)} />
+        <Route path="admin/google" element={adminOnly(<GoogleSettingsPage />)} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

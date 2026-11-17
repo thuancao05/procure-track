@@ -1,16 +1,8 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { requireUser } from '@/lib/auth';
+import { getGoogleOAuth2Client } from '@/lib/google-auth';
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
-
-oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
-
-const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const SHEET_TITLE_PATTERN = /^Tháng \d{1,2}\/\d{4}$/;
 
@@ -32,6 +24,7 @@ export async function GET(request) {
   }
 
   try {
+    const sheets = google.sheets({ version: 'v4', auth: await getGoogleOAuth2Client() });
     const escapedTitle = sheetTitle.replaceAll("'", "''");
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
