@@ -1,18 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
-
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
-
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});
-
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
+import { getGoogleOAuth2Client } from '@/lib/google-auth';
 
 const folderMimeType = 'application/vnd.google-apps.folder';
 const mockRootFolderId = 'mock-chung-tu-2026';
@@ -40,6 +29,7 @@ export async function GET() {
   }
 
   try {
+    const drive = google.drive({ version: 'v3', auth: await getGoogleOAuth2Client() });
     const folders = [];
     let pageToken;
 

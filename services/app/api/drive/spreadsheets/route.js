@@ -1,18 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
-
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
-
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});
-
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
+import { getGoogleOAuth2Client } from '@/lib/google-auth';
 
 // ID của Google Drive chỉ gồm chữ, số, '-' và '_'.
 // Chặn mọi ký tự khác (đặc biệt là dấu ') để không thể chèn thêm điều kiện vào câu truy vấn q.
@@ -43,6 +32,8 @@ export async function GET(request) {
     if (process.env.NODE_ENV !== 'production' && process.env.DRIVE_FOLDERS_MOCK === 'true' && folderId.startsWith('mock-')) {
       return NextResponse.json({ success: true, spreadsheets: [] });
     }
+
+    const drive = google.drive({ version: 'v3', auth: await getGoogleOAuth2Client() });
 
     // Truy vấn Google Drive tìm các file Google Sheets nằm trong thư mục được chọn
     const response = await drive.files.list({

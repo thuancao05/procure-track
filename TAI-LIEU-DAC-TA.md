@@ -96,6 +96,17 @@ Cookie có `path=/`, `sameSite=lax`; production bật `secure=true`.
 
 Frontend không tự đọc access token. Mỗi lần tải ứng dụng, frontend gọi `GET /api/auth/me` để xác định user hiện tại.
 
+### 4.3. Kết nối Google OAuth
+
+Admin có thể vào **Quản trị → Kết nối Google** để cấp quyền Drive và Sheets bằng OAuth.
+
+- Callback: `/api/admin/google/callback`.
+- Scope Drive: `https://www.googleapis.com/auth/drive`.
+- Scope Sheets: `https://www.googleapis.com/auth/spreadsheets`.
+- Refresh token được mã hóa AES-256-GCM trước khi lưu vào `google_oauth_connections`.
+- Frontend không nhận, lưu hoặc hiển thị refresh token/client secret.
+- Nút ngắt kết nối đánh dấu connection bị disable và làm các API Google dừng sử dụng token đó.
+
 ## 5. Chức năng frontend
 
 ### 5.1. Đăng nhập
@@ -278,6 +289,15 @@ http://localhost:3000/api
 | `PATCH` | `/api/admin/users/:id` | Admin | Đổi role/password |
 | `DELETE` | `/api/admin/users/:id` | Admin | Xóa user |
 
+### 7.7. Quản lý kết nối Google
+
+| Method | Endpoint | Quyền | Mục đích |
+|---|---|---|---|
+| `GET` | `/api/admin/google/connect` | Admin | Tạo URL OAuth Google |
+| `GET` | `/api/admin/google/callback` | Admin session | Nhận callback và lưu token mã hóa |
+| `GET` | `/api/admin/google/status` | Admin | Kiểm tra kết nối và quyền Drive/Sheets |
+| `POST` | `/api/admin/google/disconnect` | Admin | Disable kết nối Google |
+
 User tạo từ màn hình quản trị được `email_confirm: true`, nên có thể đăng nhập ngay.
 
 ### 7.6. Quản trị danh mục
@@ -336,11 +356,20 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=
 GOOGLE_REFRESH_TOKEN=
+GOOGLE_TOKEN_ENCRYPTION_KEY=
 GOOGLE_PARENT_FOLDER_ID=
 GOOGLE_SPREADSHEET_ID=
 
 FRONTEND_ORIGIN=
 ```
+
+Google Cloud OAuth Client phải khai báo redirect URI chính xác:
+
+```text
+http://localhost:3000/api/admin/google/callback
+```
+
+Production phải dùng callback URL HTTPS tương ứng. `GOOGLE_TOKEN_ENCRYPTION_KEY` là secret server-only dùng để mã hóa refresh token.
 
 ### Frontend `apps/.env`
 

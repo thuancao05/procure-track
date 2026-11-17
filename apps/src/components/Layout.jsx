@@ -21,6 +21,7 @@ const NAV_GROUPS = [
       { to: '/admin/purchase-channels', label: 'Kênh mua', icon: '🛒' },
       { to: '/admin/payment-methods', label: 'Thanh toán', icon: '💳' },
       { to: '/admin/users', label: 'Người dùng', icon: '👤' },
+      { to: '/admin/google', label: 'Kết nối Google', icon: '🔗' },
     ],
   },
 ];

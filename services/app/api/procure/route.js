@@ -2,19 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
-
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
-
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});
-
-const drive = google.drive({ version: 'v3', auth: oauth2Client });
-const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
+import { getGoogleOAuth2Client } from '@/lib/google-auth';
 
 // ID của Google Drive / Sheets chỉ gồm chữ, số, '-' và '_'.
 // Chặn mọi ký tự khác (đặc biệt là dấu ') để không thể chèn thêm điều kiện vào câu truy vấn q.
@@ -36,6 +24,9 @@ export async function POST(request) {
   if (errorResponse) return errorResponse;
 
   try {
+    const auth = await getGoogleOAuth2Client();
+    const drive = google.drive({ version: 'v3', auth });
+    const sheets = google.sheets({ version: 'v4', auth });
     const formData = await request.formData();
     
     const userSelectedFolderId = formData.get('parentFolderId');
