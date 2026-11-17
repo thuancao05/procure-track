@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
+const frontendOrigin =
+  process.env.NODE_ENV === "production"
+    ? "https://procure-track.pages.dev"
+    : process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+
 const nextConfig = {
   async headers() {
     return [
@@ -6,7 +11,7 @@ const nextConfig = {
         // Áp dụng cho tất cả các API route
         source: "/api/:path*",
         headers: [
-          { key: "Access-Control-Allow-Origin", value: process.env.FRONTEND_ORIGIN || "http://localhost:5173" },
+          { key: "Access-Control-Allow-Origin", value: frontendOrigin },
           // Cho phép FE gửi cookie phiên (axios withCredentials)
           { key: "Access-Control-Allow-Credentials", value: "true" },
           { key: "Access-Control-Allow-Methods", value: "GET,OPTIONS,PATCH,DELETE,POST,PUT" },

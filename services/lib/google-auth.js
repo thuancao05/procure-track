@@ -22,7 +22,35 @@ export function createGoogleOAuthClient() {
   if (!clientId || !clientSecret || !redirectUri) {
     throw new Error('Chưa cấu hình GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI.');
   }
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+  const client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+
+  // Cloudflare Workers does not always transparently decompress gzip responses
+  // returned by Google's OAuth endpoint. Ask Google for plain JSON so
+  // google-auth-library does not receive a binary string instead of an object.
+  const originalRequest = client.transporter.request.bind(client.transporter);
+  client.transporter.request = async (options) => {
+    const headers = new Headers(options.headers ?? {});
+    headers.set('Accept-Encoding', 'identity');
+
+    const response = await originalRequest({
+      ...options,
+      headers,
+    });
+
+    // Workers' fetch adapter may leave JSON responses as strings. The OAuth2
+    // client expects an object and mutates it with expiry/refresh metadata.
+    if (typeof response?.data === 'string') {
+      try {
+        response.data = JSON.parse(response.data);
+      } catch {
+        // Leave non-JSON responses untouched so the original error is kept.
+      }
+    }
+
+    return response;
+  };
+
+  return client;
 }
 
 function encryptionKey() {
@@ -80,11 +108,14 @@ export async function disableGoogleConnection() {
 
 export async function getGoogleOAuth2Client() {
   const connection = await getStoredGoogleConnection();
-  const refreshToken = connection?.disabled
+  const localRefreshToken = process.env.NODE_ENV !== 'production'
+    ? process.env.GOOGLE_REFRESH_TOKEN
+    : null;
+  const refreshToken = localRefreshToken || (connection?.disabled
     ? null
     : connection?.refresh_token_ciphertext
       ? decryptRefreshToken(connection.refresh_token_ciphertext)
-      : process.env.GOOGLE_REFRESH_TOKEN;
+      : process.env.GOOGLE_REFRESH_TOKEN);
   if (!refreshToken) throw new Error('Chưa kết nối tài khoản Google. Admin cần kết nối Google trước.');
 
   const client = createGoogleOAuthClient();
