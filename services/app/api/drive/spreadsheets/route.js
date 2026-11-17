@@ -40,6 +40,10 @@ export async function GET(request) {
       );
     }
 
+    if (process.env.NODE_ENV !== 'production' && process.env.DRIVE_FOLDERS_MOCK === 'true' && folderId.startsWith('mock-')) {
+      return NextResponse.json({ success: true, spreadsheets: [] });
+    }
+
     // Truy vấn Google Drive tìm các file Google Sheets nằm trong thư mục được chọn
     const response = await drive.files.list({
       q: `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`,

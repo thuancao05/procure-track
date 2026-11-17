@@ -28,6 +28,34 @@ const getSheetTitle = (dateValue) => {
   return year && month ? `Tháng ${Number(month)}/${year}` : '';
 };
 
+const sortFoldersAsTree = (folders) => {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const childrenByParent = new Map();
+  const collator = new Intl.Collator('vi', { numeric: true, sensitivity: 'base' });
+
+  folders.forEach((folder) => {
+    const parentId = folder.parents?.find((id) => byId.has(id));
+    const siblings = childrenByParent.get(parentId) ?? [];
+    siblings.push(folder);
+    childrenByParent.set(parentId, siblings);
+  });
+
+  childrenByParent.forEach((siblings) => siblings.sort((a, b) => collator.compare(a.name, b.name)));
+
+  const result = [];
+  const visited = new Set();
+  const addBranch = (folder, depth) => {
+    if (visited.has(folder.id)) return;
+    visited.add(folder.id);
+    result.push({ ...folder, depth });
+    (childrenByParent.get(folder.id) ?? []).forEach((child) => addBranch(child, depth + 1));
+  };
+
+  (childrenByParent.get(undefined) ?? []).forEach((folder) => addBranch(folder, 0));
+  folders.forEach((folder) => addBranch(folder, 0));
+  return result;
+};
+
 export default function HomeDashboard() {
   const [formData, setFormData] = useState(INITIAL_FORM);
 
@@ -62,6 +90,7 @@ export default function HomeDashboard() {
   const [folders, setFolders] = useState([]);
   const [spreadsheets, setSpreadsheets] = useState([]);
   const [defaultSpreadsheetId, setDefaultSpreadsheetId] = useState('');
+  const foldersInTreeOrder = useMemo(() => sortFoldersAsTree(folders), [folders]);
   
   const [selectedFolder, setSelectedFolder] = useState('');
   const [selectedSpreadsheet, setSelectedSpreadsheet] = useState('');
@@ -473,9 +502,9 @@ export default function HomeDashboard() {
                 required
               >
                 <option value="">{loadingFolders ? "⏳ Đang tải thư mục..." : "-- Chọn thư mục quản lý chính --"}</option>
-                {folders.map((folder) => (
+                {foldersInTreeOrder.map((folder) => (
                   <option key={folder.id} value={folder.id}>
-                    📁 {folder.name}
+                    {'  '.repeat(folder.depth)}📁 {folder.name}
                   </option>
                 ))}
               </select>

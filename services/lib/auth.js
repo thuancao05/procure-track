@@ -47,6 +47,18 @@ const json = (status, error) => NextResponse.json({ success: false, error }, { s
  * Trả về `{ user, accessToken }`, hoặc `{ errorResponse }` để route trả về ngay.
  */
 export async function requireUser() {
+  if (process.env.NODE_ENV !== 'production' && process.env.LOCAL_AUTH_BYPASS === 'true') {
+    return {
+      user: {
+        id: 'local-dev-user',
+        email: process.env.LOCAL_AUTH_EMAIL || 'local@localhost',
+        app_metadata: { role: process.env.LOCAL_AUTH_ROLE === 'admin' ? 'admin' : 'staff' },
+      },
+      accessToken: null,
+      isLocalAuthBypass: true,
+    };
+  }
+
   if (!isSupabaseConfigured) {
     return { errorResponse: json(500, 'Server chưa cấu hình SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY.') };
   }
@@ -94,7 +106,7 @@ export async function requireAdmin() {
   if (getRole(result.user) !== 'admin') {
     return { errorResponse: json(403, 'Bạn không có quyền quản trị.') };
   }
-  if (!isAdminConfigured) {
+  if (!result.isLocalAuthBypass && !isAdminConfigured) {
     return { errorResponse: json(500, 'Server chưa cấu hình SUPABASE_SECRET_KEY.') };
   }
   return result;
