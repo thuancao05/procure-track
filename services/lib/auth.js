@@ -8,8 +8,8 @@ const REFRESH_MAX_AGE = 60 * 60 * 24 * 30; // 30 ngày
 
 const cookieOptions = {
   httpOnly: true,
-  // Production chạy FE/BE khác domain thì cần sameSite: 'none' + secure: true
-  sameSite: 'lax',
+  // Frontend Pages và backend Worker khác site khi deploy production.
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   secure: process.env.NODE_ENV === 'production',
   path: '/',
 };
