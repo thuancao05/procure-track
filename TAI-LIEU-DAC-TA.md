@@ -92,7 +92,7 @@ Sau khi đăng nhập thành công, backend lưu phiên Supabase vào cookie HTT
 - `pt-access-token`
 - `pt-refresh-token`
 
-Cookie có `path=/`, `sameSite=lax`; production bật `secure=true`.
+Cookie có `path=/`; local dùng `sameSite=lax`, còn production dùng `sameSite=none` và `secure=true` để hỗ trợ frontend Cloudflare Pages gọi backend Cloudflare Worker khác origin.
 
 Frontend không tự đọc access token. Mỗi lần tải ứng dụng, frontend gọi `GET /api/auth/me` để xác định user hiện tại.
 
@@ -670,3 +670,199 @@ classDiagram
 - `ProcureService` điều phối toàn bộ luồng tạo đơn: tạo thư mục, upload ảnh và ghi Sheets.
 - `AuthService` và `LookupService` sử dụng `SupabaseService` ở backend.
 - Frontend gọi backend thông qua `AxiosApiClient`, tương ứng với instance `api` trong `apps/src/services/api.js`.
+
+## 15. Ghi nhận kỹ thuật triển khai Cloudflare (2026-11-17)
+
+### 15.1. Mô hình host production
+
+Hệ thống production được tách thành hai dịch vụ:
+
+| Thành phần | Nền tảng | URL |
+|---|---|---|
+| Frontend | Cloudflare Pages | `https://procure-track.pages.dev` |
+| Backend API | Cloudflare Workers (Vinext) | `https://procure-track-api.thuancao-mmo.workers.dev` |
+
+Frontend gọi backend qua:
+
+```text
+https://procure-track-api.thuancao-mmo.workers.dev/api
+```
+
+Mã nguồn production dùng nhánh `main`. Nhánh `deploy/cloudflare` là nhánh triển khai trước đây; sau khi kiểm tra ổn định, cấu hình production được chuyển về `main`.
+
+### 15.2. Cloudflare Worker
+
+Backend được build và deploy bằng Vinext:
+
+```bash
+cd services
+npm run build:vinext
+npm run deploy:vinext
+```
+
+Cấu hình nằm tại `services/cloudflare.config.ts`:
+
+- Worker name: `procure-track-api`.
+- Entrypoint: `vinext/server/fetch-handler`.
+- Frontend origin production: `https://procure-track.pages.dev`.
+- Không dùng Cloudflare R2 hoặc Response Store vì không muốn yêu cầu thẻ thanh toán.
+- Secret runtime được cấu hình riêng trên Cloudflare Worker, không đưa vào frontend hoặc Git.
+
+### 15.3. CORS và cookie production
+
+Backend cho phép frontend production gọi API cross-origin bằng cookie phiên:
+
+```text
+Access-Control-Allow-Origin: https://procure-track.pages.dev
+Access-Control-Allow-Credentials: true
+```
+
+Cookie xác thực gồm `pt-access-token` và `pt-refresh-token`. Production dùng `Secure` và `SameSite=None`; local dùng origin `http://localhost:5173`.
+
+Mã lỗi được phân biệt như sau:
+
+```text
+401: chưa đăng nhập hoặc cookie phiên không hợp lệ.
+403: Google token/API không đủ quyền.
+500: lỗi thực thi backend, cần đọc log Worker để tìm nguyên nhân.
+```
+
+### 15.4. Google OAuth và Google API
+
+Admin kết nối Google từ màn hình quản trị. Backend nhận callback OAuth, mã hóa refresh token bằng AES-256-GCM rồi lưu vào bảng `google_oauth_connections` trong Supabase.
+
+Các biến chính:
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+GOOGLE_REFRESH_TOKEN=
+GOOGLE_TOKEN_ENCRYPTION_KEY=
+GOOGLE_PARENT_FOLDER_ID=
+GOOGLE_SPREADSHEET_ID=
+```
+
+`GOOGLE_PARENT_FOLDER_ID` là thư mục Drive mặc định và `GOOGLE_SPREADSHEET_ID` là Spreadsheet mặc định. Production ưu tiên OAuth connection đã lưu; local có thể dùng `GOOGLE_REFRESH_TOKEN` trong `services/.env.local` để test.
+
+Đã xử lý tương thích Google API trên Cloudflare Workers:
+
+- Clone header bằng `new Headers(...)` để không làm mất `Authorization`.
+- Gửi `Accept-Encoding: identity` để tránh response gzip bị xử lý sai.
+- Parse response JSON khi Google client trả body dạng chuỗi.
+- Chuẩn hóa token trước khi gắn hoặc cập nhật `refresh_token`.
+
+Lỗi `Method doesn't allow unregistered callers` trước đây do request bị mất header xác thực; không phải do phải bật lại Google Drive API.
+
+### 15.5. Build và vận hành
+
+Backend từng gặp lỗi PostCSS do cấu hình khiến Vite đọc `services/tailwindcss` như một file. Cấu hình PostCSS/Tailwind phải dùng plugin đã cài trong `node_modules`.
+
+Khi kiểm tra hệ thống cần đọc đúng log của API/Worker, không coi mọi `401` là lỗi server. `401 /api/auth/me` khi chưa đăng nhập là trạng thái hợp lệ.
+
+## 16. CI/CD bằng GitHub Actions
+
+### 16.1. Workflow
+
+Workflow nằm tại:
+
+```text
+.github/workflows/deploy-production.yml
+```
+
+Workflow chạy khi:
+
+- Có commit hoặc merge PR vào `main`.
+- Chạy thủ công bằng `workflow_dispatch`.
+
+Luồng deploy:
+
+```text
+push/merge main
+    ↓
+Deploy backend Worker
+    ↓
+Build frontend
+    ↓
+Deploy frontend Cloudflare Pages
+```
+
+Frontend chỉ deploy sau khi backend thành công (`needs: deploy-backend`). Cả hai job dùng Node.js 22 và `npm ci` theo lockfile.
+
+### 16.2. GitHub Environment và Secrets
+
+Tạo environment:
+
+```text
+Repository → Settings → Environments → New environment → production
+```
+
+Thêm các Environment secrets:
+
+```env
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
+VITE_API_BASE_URL=https://procure-track-api.thuancao-mmo.workers.dev/api
+VITE_SUPABASE_URL=https://qlnnunnscxhlwyfppgiu.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=
+```
+
+Cloudflare API token dùng cho pipeline chỉ cần các quyền:
+
+```text
+Account Settings: Read
+Workers Scripts: Edit
+Cloudflare Pages: Edit
+```
+
+Nên giới hạn token trong đúng Cloudflare account chứa Worker và Pages project. Không cấp DNS, Billing, R2, KV, Workers Routes hoặc User API Tokens nếu pipeline không sử dụng các dịch vụ đó.
+
+`VITE_SUPABASE_PUBLISHABLE_KEY` chỉ được là publishable/anon public key. Không đưa `SUPABASE_SECRET_KEY`, service role key, Google client secret hoặc Google refresh token vào biến `VITE_`.
+
+### 16.3. Các job deploy
+
+Backend:
+
+```yaml
+working-directory: services
+run: npm ci
+run: npm run deploy:vinext
+```
+
+Frontend:
+
+```yaml
+working-directory: apps
+run: npm ci
+run: npm run build
+command: pages deploy dist --project-name procure-track
+```
+
+Frontend nhận các biến `VITE_*` từ GitHub Secrets tại thời điểm build. Backend dùng `CLOUDFLARE_API_TOKEN` và `CLOUDFLARE_ACCOUNT_ID` để xác thực Wrangler.
+
+### 16.4. Quy trình phát hành
+
+```bash
+git checkout main
+git pull origin main
+git add .
+git commit -m "your change"
+git push origin main
+```
+
+Sau khi push hoặc merge PR, kiểm tra GitHub → **Actions** → **Deploy production**. Nếu Cloudflare Pages vẫn bật Git integration tự động cho production branch, cần tắt cơ chế deploy trùng; workflow GitHub Actions là nguồn deploy chính.
+
+## 17. Danh sách việc đã hoàn thành trong phiên triển khai
+
+- Giữ frontend production trên Cloudflare Pages tại `procure-track.pages.dev`.
+- Deploy backend Vinext lên Cloudflare Workers.
+- Cấu hình CORS giữa Pages và Worker.
+- Cấu hình cookie cross-origin cho phiên đăng nhập production.
+- Kết nối và lưu Google OAuth token an toàn.
+- Dùng folder Drive và Spreadsheet mặc định từ biến môi trường.
+- Sửa xử lý response/token Google API trên Cloudflare Workers.
+- Bỏ phụ thuộc R2/Response Store để không yêu cầu thẻ thanh toán.
+- Chuyển nguồn deploy production về nhánh `main`.
+- Tạo GitHub Actions tự động deploy backend rồi frontend sau mỗi lần merge/push vào `main`.
+- Bổ sung chạy workflow thủ công bằng `workflow_dispatch`.
+- Tách secret CI/CD vào GitHub Environment `production`.
