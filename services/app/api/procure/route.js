@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
-import { Readable } from 'stream';
 import { getGoogleOAuth2Client } from '@/lib/google-auth';
 
 // ID của Google Drive / Sheets chỉ gồm chữ, số, '-' và '_'.
@@ -17,6 +16,34 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 function asSheetText(value) {
   const text = value == null ? '' : String(value);
   return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+async function uploadFileToDrive(accessToken, imageFile, parentFolderId) {
+  const metadata = {
+    name: imageFile.name || 'chung-tu',
+    parents: [parentFolderId],
+  };
+  const multipart = new FormData();
+  multipart.append(
+    'metadata',
+    new Blob([JSON.stringify(metadata)], { type: 'application/json' }),
+  );
+  multipart.append(
+    'file',
+    new Blob([await imageFile.arrayBuffer()], { type: imageFile.type || 'application/octet-stream' }),
+    imageFile.name || 'chung-tu',
+  );
+
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: multipart,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || `Google Drive upload thất bại (${response.status}).`);
+  }
+  return payload;
 }
 
 export async function POST(request) {
@@ -140,23 +167,12 @@ export async function POST(request) {
     const subFolderLink = orderFolderRes.data.webViewLink;
 
     // Upload toàn bộ ảnh chứng từ vào thư mục đơn hàng
-    for (const imageFile of validImages) {
-      const bytes = await imageFile.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const stream = new Readable();
-      stream.push(buffer);
-      stream.push(null);
+    const accessTokenResult = await auth.getAccessToken();
+    const accessToken = typeof accessTokenResult === 'string' ? accessTokenResult : accessTokenResult?.token;
+    if (!accessToken) throw new Error('Không lấy được access token Google để tải ảnh lên Drive.');
 
-      await drive.files.create({
-        requestBody: {
-          name: imageFile.name,
-          parents: [subFolderId],
-        },
-        media: {
-          mimeType: imageFile.type,
-          body: stream,
-        },
-      });
+    for (const imageFile of validImages) {
+      await uploadFileToDrive(accessToken, imageFile, subFolderId);
     }
 
     // --- PHẦN 2: XỬ LÝ GOOGLE SHEETS (Ghi nhật ký vào Tab tương ứng với Tháng) ---
