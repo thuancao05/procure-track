@@ -602,11 +602,8 @@ export default function HomeDashboard() {
         data.append('images', images[i]);
       }
 
-      const response = await api.post('/procure', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Không tự đặt Content-Type: browser/Axios cần tự thêm boundary cho multipart body.
+      const response = await api.post('/procure', data);
 
       if (response.data.success) {
         await showAlert(`${response.data.message}\nLink Drive: ${response.data.linkChungTu}`, { variant: 'success', title: 'Thêm đơn hàng thành công' });
