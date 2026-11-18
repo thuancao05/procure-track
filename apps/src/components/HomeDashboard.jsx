@@ -17,6 +17,19 @@ const formatDateDisplay = (value) => {
   return year && month && day ? `${day}/${month}/${year}` : '';
 };
 
+const formatShortDateDisplay = (value) => {
+  const [year, month, day] = String(value || '').split('-');
+  return year && month && day ? `${day}/${month}` : '';
+};
+
+const shiftDate = (value, days) => {
+  const [year, month, day] = String(value || '').split('-').map(Number);
+  if (!year || !month || !day) return value;
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 // Kênh mua, SKU, Tên hàng hóa, Thanh toán được chọn từ danh mục (backend đọc từ Supabase)
 const INITIAL_FORM = {
   ngay: todayDateString(),
@@ -592,10 +605,7 @@ export default function HomeDashboard() {
       data.append('spreadsheetId', selectedSpreadsheet); // Truyền ID file Sheet được chọn
       
       Object.keys(formData).forEach((key) => {
-        const value = ['giaGoc', 'giaThucTra'].includes(key)
-          ? String(Number(formData[key] || 0) * 1000)
-          : formData[key];
-        data.append(key, value);
+        data.append(key, formData[key]);
       });
 
       for (let i = 0; i < images.length; i++) {
@@ -777,28 +787,41 @@ export default function HomeDashboard() {
 
           {/* Grid thông tin form */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            <div className="sm:col-span-2">
               <label className={labelClass}>Ngày nhập</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formatDateDisplay(formData.ngay)}
-                  readOnly
-                  aria-label="Ngày nhập theo định dạng ngày/tháng/năm"
-                  className={`${inputClass} pr-10 pointer-events-none`}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true">📅</span>
-                <input
-                  ref={datePickerRef}
-                  type="date"
-                  name="ngay"
-                  value={formData.ngay}
-                  onChange={handleChange}
-                  onClick={(event) => event.currentTarget.showPicker?.()}
-                  aria-label="Chọn ngày nhập"
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  required
-                />
+              <div className="flex flex-nowrap items-center gap-2">
+                <div className="relative w-[170px] shrink-0 sm:w-[180px]">
+                  <input
+                    type="text"
+                    value={formatDateDisplay(formData.ngay)}
+                    readOnly
+                    aria-label="Ngày nhập theo định dạng ngày/tháng/năm"
+                    className={`${inputClass} !w-full pr-10 pointer-events-none`}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true">📅</span>
+                  <input
+                    ref={datePickerRef}
+                    type="date"
+                    name="ngay"
+                    value={formData.ngay}
+                    onChange={handleChange}
+                    onClick={(event) => event.currentTarget.showPicker?.()}
+                    aria-label="Chọn ngày nhập"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    required
+                  />
+                </div>
+                {[-1, -2, -3].map((offset) => (
+                  <button
+                    key={offset}
+                    type="button"
+                    onClick={() => setFormData((current) => ({ ...current, ngay: shiftDate(current.ngay, offset) }))}
+                    aria-label={`Chọn ngày ${formatDateDisplay(shiftDate(formData.ngay, offset))}`}
+                    className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    {formatShortDateDisplay(shiftDate(formData.ngay, offset))}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -920,16 +943,14 @@ export default function HomeDashboard() {
             <div>
               <label className={labelClass}>Giá gốc </label>
               <div className="relative max-w-[140px]">
-                <input type="text" inputMode="numeric" name="giaGoc" value={formatThousandUnits(formData.giaGoc)} placeholder="100" onChange={handleMoneyChange} className={`${inputClass} pr-14 text-right`} required />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">.000</span>
+                <input type="text" inputMode="numeric" name="giaGoc" value={formatThousandUnits(formData.giaGoc)} placeholder="100.000" onChange={handleMoneyChange} className={`${inputClass} pr-3 text-right`} required />
               </div>
             </div>
 
             <div>
               <label className={labelClass}>Giá thực trả</label>
               <div className="relative max-w-[140px]">
-                <input type="text" inputMode="numeric" name="giaThucTra" value={formatThousandUnits(formData.giaThucTra)} placeholder="120" onChange={handleMoneyChange} className={`${inputClass} pr-14 text-right`} required />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">.000</span>
+                <input type="text" inputMode="numeric" name="giaThucTra" value={formatThousandUnits(formData.giaThucTra)} placeholder="100.000" onChange={handleMoneyChange} className={`${inputClass} pr-3 text-right`} required />
               </div>
             </div>
 
