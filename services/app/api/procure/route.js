@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
 import { getGoogleOAuth2Client } from '@/lib/google-auth';
+import { parseMultipartFormData } from '@/lib/multipart';
 
 // ID của Google Drive / Sheets chỉ gồm chữ, số, '-' và '_'.
 // Chặn mọi ký tự khác (đặc biệt là dấu ') để không thể chèn thêm điều kiện vào câu truy vấn q.
@@ -50,11 +51,16 @@ export async function POST(request) {
   const { errorResponse } = await requireUser();
   if (errorResponse) return errorResponse;
 
+  const parsedBody = await parseMultipartFormData(request);
+  if (parsedBody.error) {
+    return NextResponse.json({ success: false, error: parsedBody.error }, { status: 400 });
+  }
+
   try {
     const auth = await getGoogleOAuth2Client();
     const drive = google.drive({ version: 'v3', auth });
     const sheets = google.sheets({ version: 'v4', auth });
-    const formData = await request.formData();
+    const { formData } = parsedBody;
     
     const userSelectedFolderId = formData.get('parentFolderId');
     const rootFolderId = userSelectedFolderId;
