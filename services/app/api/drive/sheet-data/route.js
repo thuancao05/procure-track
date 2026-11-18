@@ -25,6 +25,29 @@ export async function GET(request) {
 
   try {
     const sheets = google.sheets({ version: 'v4', auth: await getGoogleOAuth2Client() });
+    const spreadsheet = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties(sheetId,title)',
+    });
+    const sheetExists = (spreadsheet.data.sheets ?? []).some(
+      (sheet) => sheet.properties?.title === sheetTitle,
+    );
+
+    if (!sheetExists) {
+      return NextResponse.json({
+        success: true,
+        sheetExists: false,
+        sheetTitle,
+        message: `Chưa có sheet ${sheetTitle}.`,
+        headers: [],
+        rows: [],
+        offset,
+        limit,
+        totalRows: 0,
+        hasMore: false,
+      });
+    }
+
     const escapedTitle = sheetTitle.replaceAll("'", "''");
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -42,6 +65,7 @@ export async function GET(request) {
     const pagedRows = rows.slice(offset, offset + limit);
     return NextResponse.json({
       success: true,
+      sheetExists: true,
       sheetTitle,
       headers: values[0] ?? [],
       rows: pagedRows,

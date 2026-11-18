@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { useNotification } from '../components/NotificationProvider';
 
 export default function GoogleSettingsPage() {
+  const { showConfirm } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,12 @@ export default function GoogleSettingsPage() {
   };
 
   const disconnectGoogle = async () => {
-    if (!window.confirm('Ngắt kết nối Google? Các chức năng Drive/Sheets sẽ dừng cho đến khi kết nối lại.')) return;
+    const confirmed = await showConfirm('Ngắt kết nối Google? Các chức năng Drive/Sheets sẽ dừng cho đến khi kết nối lại.', {
+      title: 'Ngắt kết nối Google?',
+      confirmText: 'Ngắt kết nối',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
     setBusy('disconnect');
     setError('');
     try {

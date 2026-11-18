@@ -30,7 +30,7 @@ export async function POST(request) {
     const formData = await request.formData();
     
     const userSelectedFolderId = formData.get('parentFolderId');
-    const rootFolderId = userSelectedFolderId || process.env.GOOGLE_PARENT_FOLDER_ID;
+    const rootFolderId = userSelectedFolderId;
     
     // Lấy đúng ID file Spreadsheet do Frontend truyền lên
     const spreadsheetId = formData.get('spreadsheetId');
@@ -53,8 +53,41 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Vui lòng chọn ngày nhập hàng!" }, { status: 400 });
     }
 
+    if (!rootFolderId) {
+      return NextResponse.json({ success: false, error: "Vui lòng chọn thư mục gốc trên Google Drive!" }, { status: 400 });
+    }
+
     if (!spreadsheetId) {
       return NextResponse.json({ success: false, error: "Thiếu Spreadsheet ID để ghi nhật ký!" }, { status: 400 });
+    }
+
+    const requiredTextFields = [
+      ['kenhMua', kenhMua, 'kênh mua'],
+      ['tenShop', tenShop, 'tên shop'],
+      ['sku', sku, 'mã SKU'],
+      ['soLuong', soLuong, 'số lượng'],
+      ['giaGoc', giaGoc, 'giá gốc'],
+      ['giaThucTra', giaThucTra, 'giá thực trả'],
+      ['phuongThucThanhToan', phuongThucThanhToan, 'phương thức thanh toán'],
+    ];
+    const missingField = requiredTextFields.find(([, value]) => String(value ?? '').trim() === '');
+    if (missingField) {
+      return NextResponse.json({ success: false, error: `Vui lòng nhập ${missingField[2]}!` }, { status: 400 });
+    }
+
+    const numericFields = [
+      ['soLuong', soLuong, 'số lượng'],
+      ['giaGoc', giaGoc, 'giá gốc'],
+      ['giaThucTra', giaThucTra, 'giá thực trả'],
+    ];
+    const invalidNumber = numericFields.find(([, value]) => !Number.isFinite(Number(value)) || Number(value) <= 0);
+    if (invalidNumber) {
+      return NextResponse.json({ success: false, error: `${invalidNumber[2]} phải lớn hơn 0!` }, { status: 400 });
+    }
+
+    const validImages = images.filter((image) => image && Number(image.size) > 0 && typeof image.arrayBuffer === 'function');
+    if (validImages.length === 0) {
+      return NextResponse.json({ success: false, error: "Vui lòng tải lên hoặc chụp ít nhất một ảnh chứng từ!" }, { status: 400 });
     }
 
     if (!DATE_PATTERN.test(ngay)) {
@@ -107,7 +140,7 @@ export async function POST(request) {
     const subFolderLink = orderFolderRes.data.webViewLink;
 
     // Upload toàn bộ ảnh chứng từ vào thư mục đơn hàng
-    for (const imageFile of images) {
+    for (const imageFile of validImages) {
       const bytes = await imageFile.arrayBuffer();
       const buffer = Buffer.from(bytes);
       const stream = new Readable();

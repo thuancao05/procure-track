@@ -2,20 +2,34 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../services/api';
 import { inputClass, labelClass, selectClass } from '../ui';
+import { useNotification } from './NotificationProvider';
+
+const todayDateString = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateDisplay = (value) => {
+  const [year, month, day] = String(value || '').split('-');
+  return year && month && day ? `${day}/${month}/${year}` : '';
+};
 
 // Kênh mua, SKU, Tên hàng hóa, Thanh toán được chọn từ danh mục (backend đọc từ Supabase)
 const INITIAL_FORM = {
-  ngay: '2026-01-01',
+  ngay: todayDateString(),
   kenhMua: '',
-  maDonHang: '123',
-  tenShop: 'Shop 1',
+  maDonHang: '',
+  tenShop: '',
   sku: '',
   tenHangHoa: '',
-  soLuong: '10',
-  giaGoc: '100',
-  giaThucTra: '120',
+  soLuong: '2',
+  giaGoc: '0',
+  giaThucTra: '0',
   phuongThucThanhToan: '',
-  maVanDon: 'SPX123',
+  maVanDon: '',
 };
 
 const formatThousandUnits = (value) => {
@@ -23,10 +37,8 @@ const formatThousandUnits = (value) => {
   return digits ? Number(digits).toLocaleString('vi-VN') : '';
 };
 
-const getSheetTitle = (dateValue) => {
-  const [year, month] = String(dateValue || '').split('-');
-  return year && month ? `Tháng ${Number(month)}/${year}` : '';
-};
+const getCurrentYear = () => new Date().getFullYear();
+const getCurrentMonth = () => new Date().getMonth() + 1;
 
 const sortFoldersAsTree = (folders) => {
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
@@ -57,6 +69,7 @@ const sortFoldersAsTree = (folders) => {
 };
 
 export default function HomeDashboard() {
+  const { showAlert } = useNotification();
   const [formData, setFormData] = useState(INITIAL_FORM);
 
   // Danh mục từ backend (/api/lookups)
@@ -81,6 +94,7 @@ export default function HomeDashboard() {
   const qrVideoRef = useRef(null);
   const qrStreamRef = useRef(null);
   const fileInputRef = useRef(null);
+  const datePickerRef = useRef(null);
 
   useEffect(() => {
     const previews = images.map((file) => ({ file, url: URL.createObjectURL(file) }));
@@ -98,9 +112,51 @@ export default function HomeDashboard() {
   const [localPreferencesMode, setLocalPreferencesMode] = useState(false);
   const [savingDefault, setSavingDefault] = useState('');
   const foldersInTreeOrder = useMemo(() => sortFoldersAsTree(folders), [folders]);
-  
+  const folderIds = useMemo(() => new Set(folders.map((folder) => folder.id)), [folders]);
+  const foldersWithChildren = useMemo(() => {
+    const ids = new Set();
+    folders.forEach((folder) => {
+      folder.parents?.forEach((parentId) => {
+        if (folderIds.has(parentId)) ids.add(parentId);
+      });
+    });
+    return ids;
+  }, [folders, folderIds]);
+
   const [selectedFolder, setSelectedFolder] = useState('');
   const [selectedSpreadsheet, setSelectedSpreadsheet] = useState('');
+  const [expandedFolderIds, setExpandedFolderIds] = useState(() => new Set());
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+
+  const visibleFolders = useMemo(() => foldersInTreeOrder.filter((folder) => {
+    let parentId = folder.parents?.find((id) => folderIds.has(id));
+    while (parentId) {
+      if (!expandedFolderIds.has(parentId)) return false;
+      const parent = folders.find((item) => item.id === parentId);
+      parentId = parent?.parents?.find((id) => folderIds.has(id));
+    }
+    return true;
+  }), [expandedFolderIds, folderIds, folders, foldersInTreeOrder]);
+  const selectedFolderName = folders.find((folder) => folder.id === selectedFolder)?.name ?? '';
+
+  useEffect(() => {
+    if (!selectedFolder) return;
+    const selected = folders.find((folder) => folder.id === selectedFolder);
+    if (!selected) return;
+    const ancestorIds = [];
+    let parentId = selected.parents?.find((id) => folderIds.has(id));
+    while (parentId) {
+      ancestorIds.push(parentId);
+      const parent = folders.find((folder) => folder.id === parentId);
+      parentId = parent?.parents?.find((id) => folderIds.has(id));
+    }
+    if (ancestorIds.length === 0) return;
+    setExpandedFolderIds((current) => {
+      const next = new Set(current);
+      ancestorIds.forEach((id) => next.add(id));
+      return next.size === current.size ? current : next;
+    });
+  }, [folderIds, folders, selectedFolder]);
   
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [loadingSheets, setLoadingSheets] = useState(false);
@@ -111,6 +167,9 @@ export default function HomeDashboard() {
   const [sheetLoadingMore, setSheetLoadingMore] = useState(false);
   const [sheetHasMore, setSheetHasMore] = useState(false);
   const [sheetError, setSheetError] = useState('');
+  const [sheetMessage, setSheetMessage] = useState('');
+  const [selectedLogYear, setSelectedLogYear] = useState(getCurrentYear());
+  const [selectedLogMonth, setSelectedLogMonth] = useState(getCurrentMonth());
   const [sheetReloadKey, setSheetReloadKey] = useState(0);
   const [sheetSortColumn, setSheetSortColumn] = useState(0);
   const [sheetSortDirection, setSheetSortDirection] = useState('desc');
@@ -128,6 +187,14 @@ export default function HomeDashboard() {
       })
       .map(({ row }) => row);
   }, [sheetRows, sheetSortColumn, sheetSortDirection]);
+
+  const selectedLogSheetTitle = `Tháng ${selectedLogMonth}/${selectedLogYear}`;
+  const sheetYearOptions = useMemo(() => {
+    const currentYear = getCurrentYear();
+    const years = Array.from({ length: 5 }, (_, index) => currentYear - index);
+    if (!years.includes(selectedLogYear)) years.push(selectedLogYear);
+    return years.sort((a, b) => b - a);
+  }, [selectedLogYear]);
 
   useEffect(() => {
     if (!cameraOpen) return undefined;
@@ -264,9 +331,16 @@ export default function HomeDashboard() {
       setLoadingLookups(true);
       try {
         const { data } = await api.get('/lookups');
-        setProducts(data.products);
-        setChannels(data.kenhMua);
-        setPaymentMethods(data.phuongThucThanhToan);
+        const nextChannels = data.kenhMua ?? [];
+        const nextPaymentMethods = data.phuongThucThanhToan ?? [];
+        setProducts(data.products ?? []);
+        setChannels(nextChannels);
+        setPaymentMethods(nextPaymentMethods);
+        setFormData((current) => ({
+          ...current,
+          kenhMua: current.kenhMua || nextChannels.find((item) => item.isDefault)?.name || '',
+          phuongThucThanhToan: current.phuongThucThanhToan || nextPaymentMethods.find((item) => item.isDefault)?.name || '',
+        }));
         setLookupError('');
       } catch (error) {
         console.error('Không thể tải danh mục:', error);
@@ -361,28 +435,35 @@ export default function HomeDashboard() {
   }, [selectedFolder, defaultSpreadsheetId, preferredSpreadsheetId]);
 
   useEffect(() => {
-    const sheetTitle = getSheetTitle(formData.ngay);
+    const sheetTitle = selectedLogSheetTitle;
     if (!selectedSpreadsheet || !sheetTitle) {
       setSheetHeaders([]);
       setSheetRows([]);
       setSheetHasMore(false);
+      setSheetMessage('');
       return undefined;
     }
 
     let active = true;
     setSheetLoading(true);
     setSheetError('');
+    setSheetMessage('');
+    setSheetHeaders([]);
+    setSheetRows([]);
+    setSheetHasMore(false);
     api.get('/drive/sheet-data', { params: { spreadsheetId: selectedSpreadsheet, sheetTitle, offset: 0, limit: 5 } })
       .then(({ data }) => {
         if (!active) return;
         setSheetHeaders(data.headers ?? []);
         setSheetRows(data.rows ?? []);
         setSheetHasMore(Boolean(data.hasMore));
+        setSheetMessage(data.sheetExists === false ? (data.message ?? `Chưa có sheet ${sheetTitle}.`) : '');
       })
       .catch((error) => {
         if (!active) return;
         setSheetHeaders([]);
         setSheetRows([]);
+        setSheetMessage('');
         setSheetError(error.response?.data?.error ?? 'Không thể tải dữ liệu Spreadsheet.');
       })
       .finally(() => {
@@ -390,10 +471,10 @@ export default function HomeDashboard() {
       });
 
     return () => { active = false; };
-  }, [selectedSpreadsheet, formData.ngay, sheetReloadKey]);
+  }, [selectedSpreadsheet, selectedLogSheetTitle, sheetReloadKey]);
 
   const loadMoreSheetRows = async () => {
-    const sheetTitle = getSheetTitle(formData.ngay);
+    const sheetTitle = selectedLogSheetTitle;
     if (!selectedSpreadsheet || !sheetTitle || sheetLoadingMore || !sheetHasMore) return;
     setSheetLoadingMore(true);
     try {
@@ -473,9 +554,9 @@ export default function HomeDashboard() {
       }
       if (key === 'defaultFolderId') setPreferredFolderId(value ?? '');
       if (key === 'defaultSpreadsheetId') setPreferredSpreadsheetId(value ?? '');
-      alert(value ? successMessage : 'Đã bỏ thiết lập mặc định.');
+      await showAlert(value ? successMessage : 'Đã bỏ thiết lập mặc định.', { variant: 'success', title: 'Đã cập nhật' });
     } catch (error) {
-      alert(error.response?.data?.error ?? 'Không thể lưu thiết lập mặc định.');
+      await showAlert(error.response?.data?.error ?? 'Không thể lưu thiết lập mặc định.', { variant: 'error' });
     } finally {
       setSavingDefault('');
     }
@@ -485,12 +566,22 @@ export default function HomeDashboard() {
     e.preventDefault();
 
     if (!formData.ngay) {
-      alert("Vui lòng chọn ngày nhập hàng!");
+      await showAlert('Vui lòng chọn ngày nhập hàng.', { variant: 'warning' });
+      return;
+    }
+
+    if (!selectedFolder) {
+      await showAlert('Vui lòng chọn thư mục gốc trên Google Drive.', { variant: 'warning' });
       return;
     }
 
     if (!selectedSpreadsheet) {
-      alert("Vui lòng chọn hoặc tạo file Google Spreadsheet đích để lưu dữ liệu nhật ký!");
+      await showAlert('Vui lòng chọn hoặc tạo file Google Spreadsheet đích để lưu dữ liệu nhật ký.', { variant: 'warning' });
+      return;
+    }
+
+    if (!images.length) {
+      await showAlert('Vui lòng chọn hoặc chụp ít nhất một ảnh chứng từ.', { variant: 'warning' });
       return;
     }
 
@@ -518,17 +609,24 @@ export default function HomeDashboard() {
       });
 
       if (response.data.success) {
-        alert(`${response.data.message}\nLink Drive:${response.data.linkChungTu}`);
+        await showAlert(`${response.data.message}\nLink Drive: ${response.data.linkChungTu}`, { variant: 'success', title: 'Thêm đơn hàng thành công' });
+
+        const [orderYear, orderMonth] = String(formData.ngay).split('-').map(Number);
+        if (orderYear && orderMonth) {
+          setSelectedLogYear(orderYear);
+          setSelectedLogMonth(orderMonth);
+        }
+        setSheetReloadKey((key) => key + 1);
         
         // Reset form sau khi lưu thành công
         setFormData(INITIAL_FORM);
         setImages([]);
       } else {
-        alert("Lỗi: " + response.data.error);
+        await showAlert(`Lỗi: ${response.data.error}`, { variant: 'error' });
       }
     } catch (error) {
       console.error("Lỗi khi gửi dữ liệu:", error);
-      alert("Đã có lỗi xảy ra khi kết nối tới server.");
+      await showAlert('Đã có lỗi xảy ra khi kết nối tới server.', { variant: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -565,19 +663,74 @@ export default function HomeDashboard() {
                   <span>{savingDefault === 'defaultFolderId' ? 'Đang lưu...' : 'Dùng làm mặc định'}</span>
                 </label>
               </div>
-              <select 
-                value={selectedFolder} 
-                onChange={(e) => setSelectedFolder(e.target.value)}
-                className={selectClass}
-                required
-              >
-                <option value="">{loadingFolders ? "⏳ Đang tải thư mục..." : "-- Chọn thư mục quản lý chính --"}</option>
-                {foldersInTreeOrder.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {'  '.repeat(folder.depth)}📁 {folder.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setFolderPickerOpen((open) => !open)}
+                  disabled={loadingFolders || foldersInTreeOrder.length === 0}
+                  className={`${selectClass} flex items-center justify-between text-left`}
+                >
+                  <span className={selectedFolderName ? 'truncate text-slate-800' : 'text-slate-500'}>
+                    {loadingFolders ? '⏳ Đang tải thư mục...' : selectedFolderName ? `📁 ${selectedFolderName}` : '-- Chọn thư mục quản lý chính --'}
+                  </span>
+                  <span className="ml-2 shrink-0 text-slate-500" aria-hidden="true">{folderPickerOpen ? '▴' : '▾'}</span>
+                </button>
+
+                {folderPickerOpen && foldersInTreeOrder.length > 0 && (
+                  <div className="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-lg border border-slate-300 bg-white shadow-lg">
+                    <div className="max-h-64 overflow-y-auto py-1" role="tree" aria-label="Cây thư mục Google Drive">
+                      {visibleFolders.map((folder) => {
+                        const hasChildren = foldersWithChildren.has(folder.id);
+                        const isExpanded = expandedFolderIds.has(folder.id);
+                        const isSelected = selectedFolder === folder.id;
+                        return (
+                          <div
+                            key={folder.id}
+                            role="treeitem"
+                            aria-level={folder.depth + 1}
+                            aria-expanded={hasChildren ? isExpanded : undefined}
+                            className={`flex items-center gap-1 min-h-10 pr-2 hover:bg-blue-50 ${isSelected ? 'bg-blue-100 text-blue-800' : 'text-slate-700'}`}
+                            style={{ paddingLeft: `${0.5 + folder.depth * 1.25}rem` }}
+                          >
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedFolderIds((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(folder.id)) next.delete(folder.id);
+                                  else next.add(folder.id);
+                                  return next;
+                                })}
+                                className="h-8 w-8 shrink-0 rounded text-slate-500 hover:bg-blue-100 hover:text-blue-700"
+                                aria-label={isExpanded ? `Thu nhỏ ${folder.name}` : `Mở rộng ${folder.name}`}
+                              >
+                                {isExpanded ? '▾' : '▸'}
+                              </button>
+                            ) : (
+                              <span className="h-8 w-8 shrink-0" aria-hidden="true" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedFolder(folder.id);
+                                setFolderPickerOpen(false);
+                              }}
+                              className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left text-sm"
+                              title={folder.name}
+                            >
+                              <span aria-hidden="true">📁</span>
+                              <span className="truncate">{folder.name}</span>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {!selectedFolder && !loadingFolders && foldersInTreeOrder.length > 0 && (
+                <p className="mt-1 text-xs text-slate-500">Bấm vào ô để mở danh sách thư mục; chọn thư mục con nếu cần.</p>
+              )}
             </div>
 
             {/* 2. Chọn file Google Spreadsheet nằm trong thư mục đó */}
@@ -629,7 +782,27 @@ export default function HomeDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass}>Ngày nhập</label>
-              <input type="date" name="ngay" value={formData.ngay} onChange={handleChange} className={inputClass} required />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formatDateDisplay(formData.ngay)}
+                  readOnly
+                  aria-label="Ngày nhập theo định dạng ngày/tháng/năm"
+                  className={`${inputClass} pr-10 pointer-events-none`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true">📅</span>
+                <input
+                  ref={datePickerRef}
+                  type="date"
+                  name="ngay"
+                  value={formData.ngay}
+                  onChange={handleChange}
+                  onClick={(event) => event.currentTarget.showPicker?.()}
+                  aria-label="Chọn ngày nhập"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  required
+                />
+              </div>
             </div>
 
             <div className="sm:col-span-2">
@@ -640,7 +813,7 @@ export default function HomeDashboard() {
                 <p className="text-sm text-slate-500 py-2">Chưa có kênh mua.</p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2" role="radiogroup" aria-label="Kênh mua">
-                  {channels.map((name) => (
+                  {channels.map(({ name }) => (
                     <label
                       key={name}
                       className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition min-h-10 ${
@@ -668,7 +841,7 @@ export default function HomeDashboard() {
             <div>
               <label className={labelClass}>Mã đơn hàng</label>
               <div className="flex gap-2">
-                <input type="text" name="maDonHang" autoCapitalize="characters" value={formData.maDonHang} placeholder="VD: DH123456" onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} required />
+                <input type="text" name="maDonHang" autoCapitalize="characters" value={formData.maDonHang} placeholder="VD: DH123456 (không bắt buộc)" onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} />
                 <button type="button" onClick={() => openQrScanner('maDonHang')} className="shrink-0 px-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100" title="Quét mã đơn hàng">
                   📷 Quét QR
                 </button>
@@ -700,7 +873,7 @@ export default function HomeDashboard() {
 
             <div>
               <label className={labelClass}>Tên hàng hóa</label>
-              <select name="tenHangHoa" value={formData.tenHangHoa} onChange={handleProductChange} className={selectClass} required>
+              <select name="tenHangHoa" value={formData.tenHangHoa} onChange={handleProductChange} className={selectClass}>
                 <option value="">{lookupPlaceholder('-- Chọn hàng hóa --', products)}</option>
                 {products.map((p) => (
                   <option key={p.sku} value={p.tenHangHoa}>{p.tenHangHoa}</option>
@@ -713,7 +886,7 @@ export default function HomeDashboard() {
               <input type="number" inputMode="numeric" min="0" name="soLuong" value={formData.soLuong} placeholder="0" onChange={handleChange} className={inputClass} required />
             </div>
 
-            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[auto_104px_104px] gap-4 items-end justify-start">
+            <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[auto_140px_140px] gap-4 items-end justify-start">
               <div>
                 <label className={labelClass}>Phương thức thanh toán</label>
                 {loadingLookups ? (
@@ -722,7 +895,7 @@ export default function HomeDashboard() {
                 <p className="text-sm text-slate-500 py-2">Chưa có phương thức thanh toán.</p>
                 ) : (
                 <div className="flex flex-nowrap items-center gap-2" role="radiogroup" aria-label="Phương thức thanh toán">
-                  {paymentMethods.map((name) => (
+                  {paymentMethods.map(({ name }) => (
                     <label
                       key={name}
                       className={`flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition min-h-10 w-fit ${
@@ -749,7 +922,7 @@ export default function HomeDashboard() {
 
             <div>
               <label className={labelClass}>Giá gốc </label>
-              <div className="relative max-w-[104px]">
+              <div className="relative max-w-[140px]">
                 <input type="text" inputMode="numeric" name="giaGoc" value={formatThousandUnits(formData.giaGoc)} placeholder="100" onChange={handleMoneyChange} className={`${inputClass} pr-14 text-right`} required />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">.000</span>
               </div>
@@ -757,7 +930,7 @@ export default function HomeDashboard() {
 
             <div>
               <label className={labelClass}>Giá thực trả</label>
-              <div className="relative max-w-[104px]">
+              <div className="relative max-w-[140px]">
                 <input type="text" inputMode="numeric" name="giaThucTra" value={formatThousandUnits(formData.giaThucTra)} placeholder="120" onChange={handleMoneyChange} className={`${inputClass} pr-14 text-right`} required />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">.000</span>
               </div>
@@ -768,7 +941,7 @@ export default function HomeDashboard() {
             <div className="sm:col-span-2">
               <label className={labelClass}>Mã Vận đơn</label>
               <div className="flex gap-2">
-                <input type="text" name="maVanDon" autoCapitalize="characters" value={formData.maVanDon} placeholder="VD: SPXVN..." onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} required />
+                <input type="text" name="maVanDon" autoCapitalize="characters" value={formData.maVanDon} placeholder="VD: SPXVN... (không bắt buộc)" onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} />
                 <button type="button" onClick={() => openQrScanner('maVanDon')} className="shrink-0 px-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100" title="Quét mã QR">
                   📷 Quét QR
                 </button>
@@ -903,23 +1076,51 @@ export default function HomeDashboard() {
 
         {selectedSpreadsheet && (
           <section className="border-t border-slate-200 px-4 py-4 sm:px-8 sm:py-6" aria-label="Nhật ký nhập hàng">
-            <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-3">
               <div>
                 <h2 className="text-base font-bold text-slate-800">Nhật ký nhập hàng</h2>
-                <p className="text-xs text-slate-500">{getSheetTitle(formData.ngay)} · chỉ xem</p>
+                <p className="text-xs text-slate-500">{selectedLogSheetTitle} · chỉ xem</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSheetReloadKey((key) => key + 1)}
-                disabled={sheetLoading}
-                className="shrink-0 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              >
-                {sheetLoading ? 'Đang tải...' : 'Làm mới'}
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Năm
+                  <select
+                    value={selectedLogYear}
+                    onChange={(event) => setSelectedLogYear(Number(event.target.value))}
+                    className={`${selectClass} mt-1 min-w-[7rem] sm:w-auto`}
+                    disabled={sheetLoading}
+                  >
+                    {sheetYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Tháng
+                  <select
+                    value={selectedLogMonth}
+                    onChange={(event) => setSelectedLogMonth(Number(event.target.value))}
+                    className={`${selectClass} mt-1 min-w-[7rem] sm:w-auto`}
+                    disabled={sheetLoading}
+                  >
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+                      <option key={month} value={month}>Tháng {month}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setSheetReloadKey((key) => key + 1)}
+                  disabled={sheetLoading}
+                  className="shrink-0 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {sheetLoading ? 'Đang tải...' : 'Làm mới'}
+                </button>
+              </div>
             </div>
 
             {sheetError ? (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{sheetError}</p>
+            ) : sheetMessage ? (
+              <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">{sheetMessage}</p>
             ) : sheetLoading && sheetRows.length === 0 ? (
               <p className="text-sm text-slate-500 py-4">Đang tải dữ liệu Spreadsheet...</p>
             ) : sheetHeaders.length === 0 ? (
@@ -952,7 +1153,24 @@ export default function HomeDashboard() {
                   <tbody>
                     {sortedSheetRows.map((row, rowIndex) => (
                       <tr key={rowIndex} className="border-t border-slate-100 hover:bg-slate-50">
-                        {sheetHeaders.map((_, columnIndex) => <td key={columnIndex} className="px-3 py-2 whitespace-nowrap text-slate-700">{row[columnIndex] ?? ''}</td>)}
+                        {sheetHeaders.map((header, columnIndex) => {
+                          const value = String(row[columnIndex] ?? '');
+                          const isDocumentLink = header.trim().toLowerCase() === 'chứng từ' && /^https?:\/\//i.test(value);
+                          return (
+                            <td key={columnIndex} className="px-3 py-2 whitespace-nowrap text-slate-700">
+                              {isDocumentLink ? (
+                                <a
+                                  href={value}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 underline hover:text-blue-800"
+                                >
+                                  {value}
+                                </a>
+                              ) : value}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>

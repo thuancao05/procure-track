@@ -11,8 +11,8 @@ export async function GET() {
 
   const [productsRes, channelsRes, paymentsRes] = await Promise.all([
     supabase.from('products').select('sku, ten_hang_hoa').eq('is_active', true).order('sku'),
-    supabase.from('purchase_channels').select('name').eq('is_active', true).order('sort_order').order('name'),
-    supabase.from('payment_methods').select('name').eq('is_active', true).order('sort_order').order('name'),
+    supabase.from('purchase_channels').select('name, is_default').eq('is_active', true).order('sort_order').order('name'),
+    supabase.from('payment_methods').select('name, is_default').eq('is_active', true).order('sort_order').order('name'),
   ]);
 
   const error = productsRes.error || channelsRes.error || paymentsRes.error;
@@ -27,7 +27,7 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     products: productsRes.data.map((p) => ({ sku: p.sku, tenHangHoa: p.ten_hang_hoa })),
-    kenhMua: channelsRes.data.map((c) => c.name),
-    phuongThucThanhToan: paymentsRes.data.map((m) => m.name),
+    kenhMua: channelsRes.data.map((c) => ({ name: c.name, isDefault: c.is_default })),
+    phuongThucThanhToan: paymentsRes.data.map((m) => ({ name: m.name, isDefault: m.is_default })),
   });
 }

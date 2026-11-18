@@ -10,6 +10,11 @@ const nameFields = [
   { key: 'isActive', column: 'is_active', type: 'bool', label: 'Đang dùng' },
 ];
 
+const defaultableNameFields = [
+  ...nameFields,
+  { key: 'isDefault', column: 'is_default', type: 'bool', label: 'Mặc định' },
+];
+
 export const LOOKUP_RESOURCES = {
   products: {
     table: 'products',
@@ -27,14 +32,14 @@ export const LOOKUP_RESOURCES = {
     label: 'Kênh mua',
     uniqueLabel: 'Kênh mua',
     order: [['sort_order', true], ['name', true]],
-    fields: nameFields,
+    fields: defaultableNameFields,
   },
   'payment-methods': {
     table: 'payment_methods',
     label: 'Phương thức thanh toán',
     uniqueLabel: 'Phương thức thanh toán',
     order: [['sort_order', true], ['name', true]],
-    fields: nameFields,
+    fields: defaultableNameFields,
   },
 };
 

@@ -39,7 +39,17 @@ export async function POST(request, { params }) {
   const { values, error: validationError } = parseBody(resource, body, { partial: false });
   if (validationError) return errorJson(400, validationError);
 
-  const { data, error } = await createAdminClient()
+  const admin = createAdminClient();
+  if (values.is_default === true) {
+    values.is_active = true;
+    const { error: clearError } = await admin
+      .from(resource.table)
+      .update({ is_default: false })
+      .eq('is_default', true);
+    if (clearError) return dbErrorResponse(resource, clearError);
+  }
+
+  const { data, error } = await admin
     .from(resource.table)
     .insert(values)
     .select(selectColumns(resource))

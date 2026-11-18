@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import Modal from './Modal';
+import Pagination from './Pagination';
 import {
   apiError,
   dangerButtonClass,
@@ -12,18 +13,21 @@ import {
   smallButtonClass,
 } from '../ui';
 
+const PAGE_SIZE = 10;
+
 /**
  * Trang quản lý danh mục dùng chung (Hàng hóa / Kênh mua / Phương thức thanh toán).
  * Gọi backend: /api/admin/lookups/:resource
  */
 export default function LookupManager({ config }) {
-  const { resource, title, itemLabel, fields, emptyItem, primary, secondary } = config;
+  const { resource, title, itemLabel, fields, emptyItem, primary, secondary, supportsDefault } = config;
   const endpoint = `/admin/lookups/${resource}`;
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const [editing, setEditing] = useState(null); // { id?: number, values: {...} }
   const [saving, setSaving] = useState(false);
@@ -59,6 +63,13 @@ export default function LookupManager({ config }) {
     );
   }, [items, search, fields]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const visibleItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
   const openCreate = () => {
     setFormError('');
     setEditing({ values: { ...emptyItem } });
@@ -67,6 +78,7 @@ export default function LookupManager({ config }) {
   const openEdit = (item) => {
     setFormError('');
     const values = { isActive: item.isActive };
+    if (supportsDefault) values.isDefault = Boolean(item.isDefault);
     for (const f of fields) values[f.key] = item[f.key] ?? '';
     setEditing({ id: item.id, values });
   };
@@ -87,6 +99,7 @@ export default function LookupManager({ config }) {
       const v = editing.values[f.key];
       payload[f.key] = f.type === 'number' ? Number(v || 0) : String(v ?? '');
     }
+    if (supportsDefault) payload.isDefault = Boolean(editing.values.isDefault);
 
     try {
       if (editing.id) {
@@ -154,7 +167,10 @@ export default function LookupManager({ config }) {
         <input
           type="search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           placeholder={`🔍 Tìm ${itemLabel}...`}
           className={inputClass}
         />
@@ -177,13 +193,14 @@ export default function LookupManager({ config }) {
         )}
 
         {!loading &&
-          filtered.map((item) => (
+          visibleItems.map((item) => (
             <li key={item.id} className="px-4 sm:px-6 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
               <div className="min-w-0 flex-1 basis-48">
                 <p className={`font-medium truncate ${item.isActive ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
                   {primary(item)}
                 </p>
                 {secondary && <p className="text-xs text-slate-500 truncate">{secondary(item)}</p>}
+                {supportsDefault && item.isDefault && <p className="text-xs font-medium text-blue-600">★ Mặc định</p>}
               </div>
 
               <div className="flex items-center gap-2 ml-auto">
@@ -220,6 +237,8 @@ export default function LookupManager({ config }) {
           ))}
       </ul>
 
+      {!loading && !loadError && <Pagination page={page} totalPages={totalPages} totalItems={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />}
+
       {/* Form thêm / sửa */}
       {editing && (
         <Modal title={editing.id ? `Sửa ${itemLabel}` : `Thêm ${itemLabel}`} onClose={closeEditor}>
@@ -252,6 +271,18 @@ export default function LookupManager({ config }) {
               />
               <span className="text-sm text-slate-700">Đang dùng (hiển thị trong form nhập hàng)</span>
             </label>
+
+            {supportsDefault && (
+              <label className="flex items-center gap-3 py-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(editing.values.isDefault)}
+                  onChange={(e) => setValue('isDefault', e.target.checked)}
+                  className="w-5 h-5 accent-blue-600"
+                />
+                <span className="text-sm text-slate-700">Mặc định (chỉ có một mục được chọn)</span>
+              </label>
+            )}
 
             {formError && <p className={errorBoxClass}>{formError}</p>}
 

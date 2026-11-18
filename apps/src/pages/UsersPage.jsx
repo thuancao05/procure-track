@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
 import {
   apiError,
   dangerButtonClass,
@@ -15,6 +16,7 @@ import {
 
 const MIN_PASSWORD_LENGTH = 8;
 const ROLE_LABELS = { admin: 'Quản trị', staff: 'Nhân viên' };
+const PAGE_SIZE = 10;
 
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : 'Chưa đăng nhập';
@@ -34,6 +36,7 @@ export default function UsersPage({ currentUser }) {
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   // Modal: { mode: 'create' } | { mode: 'edit', user } | { mode: 'delete', user }
   const [modal, setModal] = useState(null);
@@ -62,6 +65,13 @@ export default function UsersPage({ currentUser }) {
     const q = search.trim().toLowerCase();
     return q ? users.filter((u) => u.email?.toLowerCase().includes(q)) : users;
   }, [users, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const visibleUsers = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   const closeModal = useCallback(() => setModal(null), []);
 
@@ -150,7 +160,10 @@ export default function UsersPage({ currentUser }) {
         <input
           type="search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           placeholder="🔍 Tìm theo email..."
           className={inputClass}
         />
@@ -170,7 +183,7 @@ export default function UsersPage({ currentUser }) {
         )}
 
         {!loading &&
-          filtered.map((user) => {
+          visibleUsers.map((user) => {
             const isSelf = user.id === currentUser.id;
             return (
               <li key={user.id} className="px-4 sm:px-6 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -211,6 +224,8 @@ export default function UsersPage({ currentUser }) {
             );
           })}
       </ul>
+
+      {!loading && !loadError && <Pagination page={page} totalPages={totalPages} totalItems={filtered.length} pageSize={PAGE_SIZE} onChange={setPage} />}
 
       {(modal?.mode === 'create' || modal?.mode === 'edit') && (
         <Modal title={modal.mode === 'create' ? 'Thêm người dùng' : 'Sửa người dùng'} onClose={closeModal}>
