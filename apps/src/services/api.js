@@ -5,9 +5,6 @@ const api = axios.create({
   timeout: 30000,
   // Gửi kèm cookie phiên đăng nhập (httpOnly, do backend quản lý)
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Phiên hết hạn / không hợp lệ -> báo cho App quay về màn hình đăng nhập

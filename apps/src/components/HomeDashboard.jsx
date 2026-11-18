@@ -26,8 +26,8 @@ const INITIAL_FORM = {
   sku: '',
   tenHangHoa: '',
   soLuong: '2',
-  giaGoc: '0',
-  giaThucTra: '0',
+  giaGoc: '',
+  giaThucTra: '',
   phuongThucThanhToan: '',
   maVanDon: '',
 };
