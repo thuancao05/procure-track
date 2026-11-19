@@ -52,6 +52,7 @@ export async function requireUser() {
       user: {
         id: 'local-dev-user',
         email: process.env.LOCAL_AUTH_EMAIL || 'local@localhost',
+        user_metadata: { username: process.env.LOCAL_AUTH_USERNAME || 'local' },
         app_metadata: { role: process.env.LOCAL_AUTH_ROLE === 'admin' ? 'admin' : 'staff' },
       },
       accessToken: null,
@@ -93,7 +94,11 @@ export const ROLES = ['admin', 'staff'];
 export const getRole = (user) => (user?.app_metadata?.role === 'admin' ? 'admin' : 'staff');
 
 /** Thông tin user an toàn để trả về FE. */
-export const publicUser = (user) => ({ id: user.id, email: user.email, role: getRole(user) });
+export const publicUser = (user) => ({
+  id: user.id,
+  username: user.user_metadata?.username || user.email?.split('@')[0] || '',
+  role: getRole(user),
+});
 
 /**
  * Như requireUser() nhưng chỉ cho phép role admin.

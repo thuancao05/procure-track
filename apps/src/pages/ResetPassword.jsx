@@ -53,7 +53,7 @@ export default function ResetPassword() {
     try {
       const { data, error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
-      if (data.user?.email) await api.post('/auth/login', { email: data.user.email, password });
+      if (data.user?.user_metadata?.username) await api.post('/auth/login', { username: data.user.user_metadata.username, password });
       await supabase.auth.signOut();
       setSuccess(true);
       window.setTimeout(() => navigate('/', { replace: true }), 800);

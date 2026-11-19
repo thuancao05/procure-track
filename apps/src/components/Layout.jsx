@@ -164,7 +164,7 @@ export default function Layout({ user, onLogout }) {
             <div className="min-w-0">
               <p className="text-base font-bold tracking-tight leading-tight text-slate-800 truncate">Ghi Nhận Đơn Hàng</p>
               <p className="text-slate-500 text-xs truncate">
-                {user.email}
+                {user.username}
                 {user.role === 'admin' && (
                   <span className="ml-1.5 px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-semibold uppercase">admin</span>
                 )}
