@@ -12,4 +12,6 @@
 
 5. Có thêm góc nhìn của 1 người muốn build product, thì thực sự việc thay đổi và phát triển muốn thay đổi liên tục
 
-6. 
+6. Khi triển khai, em chọn Next.js App Router để xây API vì dự án có quy mô vừa, luồng nghiệp vụ tập trung và cần triển khai lên Cloudflare Workers. Next.js giúp em xây nhanh API, xác thực, validation và tích hợp Supabase/Google trong cùng hệ sinh thái JavaScript.  
+
+Tuy nhiên, nhìn theo yêu cầu học phần thì NestJS là phần em chưa áp dụng. Đây là điểm em cần bổ sung ở dự án sau, nhất là khi hệ thống lớn hơn và cần cấu trúc module/service/DTO rõ ràng hơn.

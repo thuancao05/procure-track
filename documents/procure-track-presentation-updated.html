@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Procure Track – Ý tưởng & thiết kế hệ thống</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F1F4F2; --card:#FFFFFF; --ink:#16233A; --muted:#5C6B7A; --line:#CBD3DA;
+  --drive:#0E7490; --drive-soft:#DDF0F5; --sheet:#1E7B45; --sheet-soft:#DFF1E6;
+  --supa:#5B4BB7; --supa-soft:#E9E6F8; --warn:#B42318; --warn-soft:#FCE7E4;
+  --get:#1E7B45; --post:#0E7490; --patch:#9A6700; --del:#B42318;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#121821; --card:#1A2230; --ink:#E6ECF2; --muted:#9AA8B6; --line:#2F3B4A;
+    --drive:#4CC3DD; --drive-soft:#12303A; --sheet:#5FD38F; --sheet-soft:#143024;
+    --supa:#A99BFF; --supa-soft:#251F45; --warn:#FF8A7A; --warn-soft:#3A1C18;
+    --get:#5FD38F; --post:#4CC3DD; --patch:#E8B649; --del:#FF8A7A;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121821; --card:#1A2230; --ink:#E6ECF2; --muted:#9AA8B6; --line:#2F3B4A;
+  --drive:#4CC3DD; --drive-soft:#12303A; --sheet:#5FD38F; --sheet-soft:#143024;
+  --supa:#A99BFF; --supa-soft:#251F45; --warn:#FF8A7A; --warn-soft:#3A1C18;
+  --get:#5FD38F; --post:#4CC3DD; --patch:#E8B649; --del:#FF8A7A;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:18px;line-height:1.55;overflow-x:hidden}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+:focus-visible{outline:3px solid var(--drive);outline-offset:2px}
+
+/* ---------- stack-page deck ---------- */
+.deck{position:relative;isolation:isolate}
+.slide{position:sticky;top:0;display:flex;flex-direction:column;justify-content:center;min-height:100svh;padding:44px clamp(24px,6vw,96px) 84px;background:var(--paper);transform:translateY(var(--stack-shift,0)) scale(var(--stack-scale,1));transform-origin:center top;opacity:var(--stack-opacity,1);will-change:transform,opacity;box-shadow:0 28px 60px -42px rgba(22,35,58,.75)}
+.slide::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 -1px 0 var(--line)}
+.slide.on{display:flex}
+.inner{width:100%;max-width:1120px;margin:0 auto}
+h1,h2,h3{margin:0;line-height:1.15;letter-spacing:-.015em}
+h2{font-size:clamp(28px,3.6vw,44px);font-weight:800;margin-bottom:10px}
+.lead{color:var(--muted);font-size:clamp(17px,1.6vw,21px);max-width:62ch;margin:0 0 32px}
+h3{font-size:19px;font-weight:600;margin-bottom:6px}
+p{margin:0 0 10px}
+
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:14px;padding:12px clamp(16px,4vw,40px) calc(12px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(6px);z-index:300}
+.bar button{font:inherit;font-size:15px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:999px;width:42px;height:42px;cursor:pointer;display:grid;place-items:center}
+.bar button:disabled{opacity:.35;cursor:default}
+.progress{flex:1;height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--drive);transition:width .25s}
+.count{font-size:14px;color:var(--muted);min-width:4.5ch;text-align:right}
+.hint{font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.progress i{transition:none}}
+
+/* Mobile & print */
+@media (max-width:760px){
+  .slide{padding:48px 20px 76px;min-height:100svh}
+  .hint{display:none}
+  body{font-size:16px}
+}
+@media print{
+  .bar{display:none}
+  .slide{position:static;display:block!important;page-break-after:always;min-height:100vh;transform:none!important;opacity:1!important}
+}
+
+/* ---------- title slide ---------- */
+.title{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}
+@media (max-width:900px){.title{grid-template-columns:1fr}}
+.title h1{font-size:clamp(48px,7.5vw,96px);font-weight:800;letter-spacing:-.035em;line-height:.95}
+.title .sub{font-size:clamp(19px,2vw,25px);color:var(--muted);margin-top:22px;max-width:28ch}
+.slip{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:22px 24px;position:relative;box-shadow:0 18px 40px -24px rgba(22,35,58,.45);transform:rotate(-1.5deg)}
+.slip .row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding:7px 0;font-size:15px}
+.slip .row span:first-child{color:var(--muted)}
+.slip .row b{font-weight:600}
+.slip .path{margin-top:14px;font-size:13px;color:var(--drive);word-break:break-all}
+.stamp{position:absolute;right:-10px;top:-18px;border:3px solid var(--sheet);color:var(--sheet);font-weight:800;font-size:17px;padding:4px 12px;border-radius:6px;transform:rotate(9deg);background:var(--card)}
+
+/* ---------- before / after ---------- */
+.ba{display:grid;grid-template-columns:1fr auto 1fr;gap:28px;align-items:stretch}
+@media (max-width:900px){.ba{grid-template-columns:1fr}.ba .arrow{transform:rotate(90deg)}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:24px}
+.panel ul{margin:12px 0 0;padding-left:20px}
+.panel li{margin:6px 0}
+.panel.before h3{color:var(--warn)}
+.panel.after h3{color:var(--sheet)}
+.arrow{align-self:center;font-size:40px;color:var(--muted);text-align:center}
+
+/* ---------- roles ---------- */
+.roles{display:grid;grid-template-columns:1fr 1.25fr;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card)}
+@media (max-width:900px){.roles{grid-template-columns:1fr}}
+.roles > div{padding:26px}
+.roles .admin{background:var(--supa-soft)}
+.roles h3{font-size:22px}
+.roles .who{color:var(--muted);font-size:15px;margin-bottom:14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:15px}
+.admin .chip{background:var(--card)}
+.inherit{font-size:15px;color:var(--muted);margin:0 0 12px}
+
+/* ---------- svg diagrams ---------- */
+.fig{width:100%;height:auto;display:block}
+.fig .box{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+.fig .t{fill:var(--ink);font:600 17px "Be Vietnam Pro",sans-serif}
+.fig .s{fill:var(--muted);font:400 13.5px "Be Vietnam Pro",sans-serif}
+.fig .m{fill:var(--muted);font:400 12.5px "JetBrains Mono",monospace}
+.fig .ln{stroke:var(--muted);stroke-width:1.6;fill:none}
+.fig .supa{fill:var(--supa-soft);stroke:var(--supa)}
+.fig .drive{fill:var(--drive-soft);stroke:var(--drive)}
+.fig .sheet{fill:var(--sheet-soft);stroke:var(--sheet)}
+
+/* ---------- flow ---------- */
+.flow{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;counter-reset:st;margin-bottom:28px}
+@media (max-width:900px){.flow{grid-template-columns:1fr 1fr}}
+.step{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;position:relative;counter-increment:st;font-size:15px}
+.step::before{content:counter(st);display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--paper);font-weight:800;font-size:14px;margin-bottom:8px}
+.step b{display:block;font-size:16px;margin-bottom:2px}
+.step.d{border-color:var(--drive)} .step.d::before{background:var(--drive)}
+.step.g{border-color:var(--sheet)} .step.g::before{background:var(--sheet)}
+.out{display:grid;grid-template-columns:1fr 1.3fr;gap:18px;align-items:start}
+@media (max-width:900px){.out{grid-template-columns:1fr}}
+.tree{background:var(--drive-soft);border:1px solid var(--drive);border-radius:10px;padding:16px 18px;font-size:14.5px;line-height:1.9;white-space:pre;overflow-x:auto}
+.sheetrow{background:var(--sheet-soft);border:1px solid var(--sheet);border-radius:10px;padding:14px;overflow-x:auto}
+.sheetrow .tab{font-size:13px;font-weight:600;color:var(--sheet);margin-bottom:8px}
+.sheetrow table{border-collapse:collapse;font-size:13px;min-width:560px;background:var(--card)}
+.sheetrow th,.sheetrow td{border:1px solid var(--line);padding:5px 8px;white-space:nowrap;text-align:left}
+.sheetrow th{color:var(--muted);font-weight:500}
+.sheetrow td a{color:var(--drive)}
+
+/* ---------- form mock ---------- */
+.formwrap{display:grid;grid-template-columns:minmax(0,380px) 1fr;gap:40px;align-items:center}
+@media (max-width:900px){.formwrap{grid-template-columns:1fr}}
+.phone{background:var(--card);border:1px solid var(--line);border-radius:26px;padding:20px 18px;box-shadow:0 18px 40px -26px rgba(22,35,58,.5)}
+.f{margin-bottom:10px}
+.f label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.fi{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--paper)}
+.fi .btn{font-size:12px;background:var(--drive-soft);color:var(--drive);border-radius:6px;padding:2px 8px;white-space:nowrap}
+.radios{display:flex;gap:6px;flex-wrap:wrap}
+.radios span{border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:13px}
+.radios span.sel{border-color:var(--drive);background:var(--drive-soft);color:var(--drive);font-weight:600}
+.money{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fi .unit{color:var(--muted)}
+.thumbs{display:flex;gap:6px}
+.thumbs i{width:44px;height:44px;border-radius:6px;background:var(--line);display:block}
+.submit{margin-top:12px;background:var(--drive);color:#fff;border-radius:10px;text-align:center;padding:10px;font-weight:600;font-size:15px}
+.callouts{list-style:none;margin:0;padding:0;display:grid;gap:16px}
+.callouts li{display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:start}
+.callouts .ic{width:44px;height:44px;border-radius:10px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-size:22px}
+.callouts b{display:block;font-size:17px}
+.callouts span{color:var(--muted);font-size:15.5px}
+
+/* ---------- viewer mock ---------- */
+.viewer{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.vhead{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+.vhead small{color:var(--muted)}
+.vbtn{border:1px solid var(--line);border-radius:8px;padding:5px 12px;font-size:14px}
+.vtable{overflow-x:auto}
+.vtable table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+.vtable th{background:var(--paper);color:var(--muted);font-weight:500;text-align:left;padding:8px 14px}
+.vtable td{padding:8px 14px;border-top:1px solid var(--line)}
+.vtable .num{text-align:right}
+.more{text-align:center;padding:10px;border-top:1px solid var(--line);color:var(--drive);font-weight:600;font-size:15px}
+.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px}
+@media (max-width:900px){.facts{grid-template-columns:1fr 1fr}}
+.fact{border-left:3px solid var(--sheet);padding:2px 0 2px 12px;font-size:15.5px}
+.fact b{display:block}
+
+/* ---------- security ---------- */
+.layers{display:grid;gap:10px}
+.layer{display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 20px}
+@media (max-width:760px){.layer{grid-template-columns:1fr;gap:4px}}
+.layer h3{margin:0;font-size:17px}
+.layer p{margin:0;color:var(--muted);font-size:15.5px}
+.layer:nth-child(1){margin-right:0}
+.layer.k{border-left:5px solid var(--supa)}
+.layer.d{border-left:5px solid var(--drive)}
+.layer.g{border-left:5px solid var(--sheet)}
+
+/* ---------- API ---------- */
+.api{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:1000px){.api{grid-template-columns:1fr 1fr}}
+@media (max-width:640px){.api{grid-template-columns:1fr}}
+.grp{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.grp h3{font-size:16px;display:flex;justify-content:space-between;gap:8px}
+.grp h3 small{font-weight:500;color:var(--muted);font-size:13px}
+.ep{display:grid;grid-template-columns:62px 1fr;gap:8px;align-items:baseline;font-size:13.5px;margin-top:8px}
+.ep .mth{font:600 11.5px "JetBrains Mono",monospace;border-radius:5px;padding:2px 0;text-align:center;color:var(--card)}
+.ep .GET{background:var(--get)} .ep .POST{background:var(--post)} .ep .PATCH{background:var(--patch)} .ep .DELETE{background:var(--del)}
+.ep code{font-size:13px;word-break:break-all}
+.grp.admin{background:var(--supa-soft)}
+.grp.wide{grid-column:span 2}
+@media (max-width:640px){.grp.wide{grid-column:auto}}
+
+/* ---------- data ---------- */
+.data{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:start}
+@media (max-width:1000px){.data{grid-template-columns:1fr 1fr}}
+.tbl{background:var(--card);border:1px solid var(--supa);border-radius:10px;overflow:hidden;font-size:14px}
+.tbl h3{background:var(--supa-soft);padding:10px 14px;margin:0;font-size:15px;font-family:"JetBrains Mono",monospace}
+.tbl div{padding:6px 14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.tbl div span{color:var(--muted);font-size:13px}
+.note{background:var(--card);border:1px dashed var(--muted);border-radius:10px;padding:16px;font-size:15.5px}
+.note b{display:block;margin-bottom:6px}
+
+/* ---------- limits ---------- */
+.deploy{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch}
+@media (max-width:900px){.deploy{grid-template-columns:1fr}}
+.deploy .node{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;position:relative}
+.deploy .node h3{font-size:20px;margin-bottom:8px}.deploy .node p{font-size:15.5px;color:var(--muted)}
+.deploy .node:first-child{border-top:5px solid var(--supa)}.deploy .node:nth-child(2){border-top:5px solid var(--drive)}.deploy .node:nth-child(3){border-top:5px solid var(--sheet)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+.list{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px}
+.list h3{font-size:20px;margin-bottom:12px}
+.list ul{margin:0;padding-left:20px}
+.list li{margin:8px 0}
+.list.lim{border-top:5px solid var(--warn)}
+.list.nxt{border-top:5px solid var(--sheet)}
+.end{margin-top:28px;font-size:clamp(20px,2.2vw,28px);font-weight:600}
+
+/* ---------- speaker notes ---------- */
+.notes{display:none}
+.notes summary{cursor:pointer;font-weight:600;font-size:15px}
+.nb{font-size:15px;line-height:1.55}
+.nb .say{font-size:16px;font-style:italic;border-left:3px solid var(--drive);padding-left:12px;margin:12px 0 16px}
+.nb h4{margin:16px 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+.nb dl{margin:0}
+.nb dt{font-weight:600;margin-top:8px}
+.nb dd{margin:2px 0 0;color:var(--ink)}
+.nb dl.qa dt{color:var(--drive)}
+.nb code{font-size:13px;background:var(--paper);padding:0 4px;border-radius:4px}
+.notes-panel{display:none;position:fixed;top:0;right:0;bottom:66px;width:min(440px,42vw);background:var(--card);border-left:1px solid var(--line);padding:22px 24px calc(22px + env(safe-area-inset-top,0px));overflow:auto;z-index:200;padding-top:calc(22px + env(safe-area-inset-top,0px))}
+.notes-panel .ttl{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px}
+.notes-panel .ttl b{font-size:17px}
+.notes-panel .ttl small{color:var(--muted);font-size:13px}
+.notes-panel .empty{color:var(--muted);font-size:15px;margin-top:12px}
+body.notes-on .notes-panel{display:block}
+body.notes-on .slide{padding-right:calc(min(440px,42vw) + 36px)}
+#notesBtn{width:auto;padding:0 14px;font-size:14px}
+#notesBtn[aria-pressed="true"]{background:var(--drive-soft);border-color:var(--drive);color:var(--drive)}
+@media (max-width:760px){
+  .notes{display:block;margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+  .notes-panel{display:none!important}
+}
+@media print{.notes,.notes-panel{display:none!important}}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- 1. Title -->
+<section class="slide" aria-label="Trang bìa">
+  <div class="inner title">
+    <div>
+      <h1>Procure<br>Track</h1>
+      <p class="sub">Bản trình bày ý tưởng &amp; thiết kế hệ thống: ghi đơn nhập hàng, lưu chứng từ và quản lý luồng dữ liệu trên một giao diện.</p>
+    </div>
+    <div class="slip" aria-hidden="true">
+      <div class="stamp">BẢN THIẾT KẾ</div>
+      <div class="row"><span>Ngày nhập</span><b>15/11/2026</b></div>
+      <div class="row"><span>Kênh mua</span><b>Shopee</b></div>
+      <div class="row"><span>Mã đơn</span><b class="mono">DH240115</b></div>
+      <div class="row"><span>SKU</span><b class="mono">AO-TH-01</b></div>
+      <div class="row"><span>Số lượng</span><b>10</b></div>
+      <div class="row"><span>Giá thực trả</span><b>1.200.000đ</b></div>
+      <div class="path mono">Drive / Tháng 11/2026 / 15.DH240115.SPXVN0099</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Problem -->
+<section class="slide" aria-label="Mục đích">
+  <div class="inner">
+    <h2>Vì sao cần Procure Track</h2>
+    <p class="lead">Người bán nhập hàng từ nhiều nơi. Mỗi đơn cần chứng minh được nguồn gốc khi kiểm tra.</p>
+    <div class="ba">
+      <div class="panel before">
+        <h3>Trước đây</h3>
+        <ul>
+          <li>Ảnh bill nằm rải rác trong điện thoại, Zalo, email</li>
+          <li>Sổ nhập hàng gõ tay, dễ sai, dễ thiếu</li>
+          <li>Tìm lại chứng từ của một đơn mất nhiều thời gian</li>
+        </ul>
+      </div>
+      <div class="arrow" aria-hidden="true">→</div>
+      <div class="panel after">
+        <h3>Với Procure Track</h3>
+        <ul>
+          <li>Mỗi đơn có một thư mục chứng từ riêng trên Drive</li>
+          <li>Mỗi đơn là một dòng trong sổ tháng trên Sheets</li>
+          <li>Dòng nhật ký có link mở thẳng thư mục chứng từ</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Roles -->
+<section class="slide" aria-label="Người dùng">
+  <div class="inner">
+    <h2>Ai dùng hệ thống</h2>
+    <p class="lead">Hai vai trò. Vai trò lưu ở phía máy chủ, người dùng không tự đổi được.</p>
+    <div class="roles">
+      <div>
+        <h3>Nhân viên nhập hàng</h3>
+        <div class="who">Vai trò mặc định (staff)</div>
+        <div class="chips">
+          <span class="chip">Đăng nhập</span><span class="chip">Tạo phiếu nhập</span><span class="chip">Quét QR</span>
+          <span class="chip">Chụp / chọn ảnh</span><span class="chip">Chọn Drive & Sheet</span><span class="chip">Xem nhật ký</span><span class="chip">Đặt lại mật khẩu</span>
+        </div>
+      </div>
+      <div class="admin">
+        <h3>Quản trị viên</h3>
+        <div class="who">admin</div>
+        <p class="inherit">Làm được mọi việc của nhân viên, cộng thêm:</p>
+        <div class="chips">
+          <span class="chip">Quản lý hàng hóa / SKU</span><span class="chip">Quản lý kênh mua</span>
+          <span class="chip">Quản lý phương thức thanh toán</span><span class="chip">Tạo, xóa tài khoản</span><span class="chip">Đổi vai trò, mật khẩu</span><span class="chip">Kết nối / ngắt Google OAuth</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Architecture -->
+<section class="slide" aria-label="Kiến trúc">
+  <div class="inner">
+    <h2>Kiến trúc</h2>
+    <p class="lead">Frontend và API được tách riêng. Backend giữ bí mật, điều phối nghiệp vụ và làm việc với Supabase, Google Drive và Google Sheets.</p>
+    <svg class="fig" viewBox="0 0 900 380" role="img" aria-labelledby="arch-t">
+      <title id="arch-t">React trên Cloudflare Pages gọi Next.js API trên Cloudflare Workers; API kết nối Supabase, Google Drive và Google Sheets</title>
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--muted)"/></marker></defs>
+      <rect class="box" x="10" y="135" width="190" height="110" rx="12"/>
+      <text class="t" x="105" y="178" text-anchor="middle">Trình duyệt</text>
+      <text class="s" x="105" y="202" text-anchor="middle">React + Vite</text>
+      <text class="m" x="105" y="225" text-anchor="middle">Cloudflare Pages</text>
+
+      <line class="ln" x1="200" y1="190" x2="292" y2="190" marker-end="url(#ah)"/>
+      <text class="m" x="246" y="178" text-anchor="middle">axios</text>
+      <text class="m" x="246" y="212" text-anchor="middle">cookie</text>
+
+      <rect class="box" x="296" y="120" width="210" height="140" rx="12"/>
+      <text class="t" x="401" y="168" text-anchor="middle">Backend API</text>
+      <text class="s" x="401" y="192" text-anchor="middle">Next.js</text>
+      <text class="s" x="401" y="214" text-anchor="middle">xác thực, kiểm tra dữ liệu</text>
+      <text class="m" x="401" y="240" text-anchor="middle">Cloudflare Workers</text>
+
+      <path class="ln" d="M506 160 C 560 160, 560 72, 600 72" marker-end="url(#ah)"/>
+      <line class="ln" x1="506" y1="190" x2="596" y2="190" marker-end="url(#ah)"/>
+      <path class="ln" d="M506 220 C 560 220, 560 308, 600 308" marker-end="url(#ah)"/>
+
+      <rect class="box supa" x="604" y="22" width="286" height="100" rx="12"/>
+      <text class="t" x="626" y="62">Supabase</text>
+      <text class="s" x="626" y="88">Đăng nhập, người dùng, vai trò</text>
+      <text class="s" x="626" y="108">Danh mục hàng hóa, kênh, thanh toán</text>
+
+      <rect class="box drive" x="604" y="140" width="286" height="100" rx="12"/>
+      <text class="t" x="626" y="180">Google Drive</text>
+      <text class="s" x="626" y="206">Thư mục tháng, thư mục đơn</text>
+      <text class="s" x="626" y="226">Ảnh chứng từ</text>
+
+      <rect class="box sheet" x="604" y="258" width="286" height="100" rx="12"/>
+      <text class="t" x="626" y="298">Google Sheets</text>
+      <text class="s" x="626" y="324">Sổ nhật ký, mỗi tháng một tab</text>
+      <text class="s" x="626" y="344">Mỗi đơn một dòng</text>
+    </svg>
+  </div>
+<details class="notes"><summary>Ghi chú người nói</summary><div class="nb">
+<p class="say">“Trình duyệt chỉ nói chuyện với backend của mình. Backend giữ hết chìa khóa và thay mặt người dùng làm việc với Supabase, Drive và Sheets.”</p>
+<h4>Thuật ngữ</h4>
+<dl>
+<dt>React + Vite</dt><dd>React dựng giao diện; Vite chạy và đóng gói code frontend.</dd>
+<dt>Next.js</dt><dd>Ở dự án này chỉ dùng để viết API. Mỗi file <code>route.js</code> là một endpoint.</dd>
+<dt>Pages / Workers</dt><dd>Production tách frontend trên Cloudflare Pages và backend API trên Cloudflare Workers; khi phát triển local vẫn có thể chạy ở các port riêng.</dd>
+<dt>axios</dt><dd>Thư viện gửi request từ trình duyệt tới backend.</dd>
+<dt>cookie</dt><dd>Mẩu dữ liệu trình duyệt tự gửi kèm mỗi request; ở đây chứa “vé đăng nhập”.</dd>
+</dl>
+<h4>Câu hỏi có thể gặp</h4>
+<dl class="qa">
+<dt>Sao trình duyệt không gọi thẳng Google Drive?</dt><dd>Gọi Google cần client secret và refresh token. Đưa xuống trình duyệt thì ai mở DevTools cũng lấy được và toàn quyền với Drive. Backend là người giữ chìa khóa: kiểm tra quyền rồi mới mở cửa.</dd>
+<dt>Sao tách hai ứng dụng?</dt><dd>Frontend lo hiển thị; backend lo bảo mật và nghiệp vụ. Cách tách này cũng giúp frontend và API có thể triển khai độc lập, và sau này app di động có thể dùng chung backend.</dd>
+<dt>Backend tắt thì sao?</dt><dd>Giao diện vẫn mở nhưng không đăng nhập, không lưu đơn được, vì mọi dữ liệu đều đi qua backend.</dd>
+</dl></div></details>
+</section>
+
+<!-- 5. Flow -->
+<section class="slide" aria-label="Luồng tạo đơn">
+  <div class="inner">
+    <h2>Một đơn đi qua hệ thống</h2>
+    <p class="lead">Từ lúc bấm Lưu tới khi có link chứng từ, mọi việc diễn ra trong một request.</p>
+    <div class="flow">
+      <div class="step"><b>Điền form</b>Quét QR, chụp ảnh bill</div>
+      <div class="step"><b>Kiểm tra</b>Đã đăng nhập? Ngày, ID hợp lệ?</div>
+      <div class="step d"><b>Thư mục tháng</b>Tìm hoặc tạo mới</div>
+      <div class="step d"><b>Thư mục đơn</b>Tạo và tải ảnh lên</div>
+      <div class="step g"><b>Ghi sổ</b>Thêm một dòng vào tab tháng</div>
+      <div class="step g"><b>Trả kết quả</b>Link thư mục chứng từ</div>
+    </div>
+    <div class="out">
+      <div class="tree mono" aria-label="Cấu trúc thư mục trên Google Drive">📁 Thư mục gốc
+└─ 📁 Tháng 11/2026
+   └─ 📁 15.DH240115.SPXVN0099
+      ├─ 🧾 bill-shopee.jpg
+      └─ 📦 nhan-sku.jpg</div>
+      <div class="sheetrow">
+        <div class="tab">Tab “Tháng 11/2026”</div>
+        <table>
+          <tr><th>Ngày</th><th>Kênh</th><th>Mã đơn</th><th>SKU</th><th>SL</th><th>Giá thực trả</th><th>Vận đơn</th><th>Chứng từ</th></tr>
+          <tr><td>15/11/2026</td><td>Shopee</td><td class="mono">DH240115</td><td class="mono">AO-TH-01</td><td>10</td><td>1.200.000</td><td class="mono">SPXVN0099</td><td><a>Mở thư mục</a></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6. Form -->
+<section class="slide" aria-label="Form nhập hàng">
+  <div class="inner formwrap">
+    <div class="phone" aria-hidden="true">
+      <div class="f"><label>Kênh mua</label><div class="radios"><span class="sel">Shopee</span><span>Lazada</span><span>TikTok</span></div></div>
+      <div class="f"><label>Mã đơn hàng</label><div class="fi"><span class="mono">DH240115</span><span class="btn">📷 Quét QR</span></div></div>
+      <div class="f"><label>SKU</label><div class="fi"><span class="mono">AO-TH-01</span><span class="unit">Áo thun trắng</span></div></div>
+      <div class="f money"><div><label>Giá gốc</label><div class="fi"><span>1.000</span><span class="unit">.000</span></div></div><div><label>Giá thực trả</label><div class="fi"><span>1.200</span><span class="unit">.000</span></div></div></div>
+      <div class="f"><label>Mã vận đơn</label><div class="fi"><span class="mono">SPXVN0099</span><span class="btn">📷 Quét QR</span></div></div>
+      <div class="f"><label>Ảnh chứng từ</label><div class="thumbs"><i></i><i></i><i></i></div></div>
+      <div class="submit">Lưu đơn nhập hàng</div>
+    </div>
+    <div>
+      <h2>Form nhập nhanh, ít gõ</h2>
+      <p class="lead">Thiết kế cho điện thoại, dùng ngay tại chỗ nhận hàng.</p>
+      <ul class="callouts">
+        <li><span class="ic" aria-hidden="true">📷</span><div><b>Quét QR</b><span>Điền mã đơn và mã vận đơn bằng camera.</span></div></li>
+        <li><span class="ic" aria-hidden="true">🧾</span><div><b>Chụp nhiều ảnh</b><span>Xem trước, xóa từng ảnh trước khi lưu.</span></div></li>
+        <li><span class="ic" aria-hidden="true">💰</span><div><b>Gõ giá theo nghìn</b><span>Gõ <code>1.200</code> nghĩa là 1.200.000đ.</span></div></li>
+        <li><span class="ic" aria-hidden="true">🔎</span><div><b>SKU có gợi ý</b><span>Chọn SKU là tên hàng tự điền.</span></div></li>
+        <li><span class="ic" aria-hidden="true">📁</span><div><b>Nhớ nơi lưu theo người dùng</b><span>Thư mục Drive và file Sheet mặc định được lưu riêng cho từng tài khoản.</span></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 7. Viewer & editing -->
+<section class="slide" aria-label="Nhật ký">
+  <div class="inner">
+    <h2>Tra cứu và chỉnh sửa có kiểm soát</h2>
+    <p class="lead">Trang chủ cho phép xem nhật ký theo tháng; trang chỉnh sửa nạp lại đúng dòng, chứng từ và đồng bộ thay đổi trở lại Drive/Sheets.</p>
+    <div class="viewer" aria-hidden="true">
+      <div class="vhead"><div><b>Nhật ký nhập hàng</b><br><small>Tháng 11/2026 · xem hoặc chọn dòng để chỉnh sửa</small></div><span class="vbtn">Làm mới</span></div>
+      <div class="vtable"><table>
+        <tr><th>Ngày ↓</th><th>Kênh mua</th><th>Mã đơn</th><th>SKU</th><th class="num">Số lượng</th><th class="num">Giá thực trả</th></tr>
+        <tr><td>15/11/2026</td><td>Shopee</td><td class="mono">DH240115</td><td class="mono">AO-TH-01</td><td class="num">10</td><td class="num">1.200.000</td></tr>
+        <tr><td>14/11/2026</td><td>Lazada</td><td class="mono">LZ88213</td><td class="mono">QJ-DN-32</td><td class="num">5</td><td class="num">1.450.000</td></tr>
+        <tr><td>12/11/2026</td><td>TikTok</td><td class="mono">TT55102</td><td class="mono">NON-BB-02</td><td class="num">20</td><td class="num">900.000</td></tr>
+        <tr><td>10/11/2026</td><td>Shopee</td><td class="mono">DH239870</td><td class="mono">AO-TH-02</td><td class="num">8</td><td class="num">960.000</td></tr>
+        <tr><td>08/11/2026</td><td>Chợ đầu mối</td><td class="mono">CDM-1108</td><td class="mono">TUI-VAI-01</td><td class="num">30</td><td class="num">1.500.000</td></tr>
+      </table></div>
+      <div class="more">Tải thêm 5 dòng</div>
+    </div>
+    <div class="facts">
+      <div class="fact"><b>5 dòng mỗi lần</b>Mới nhất trước</div>
+      <div class="fact"><b>Chọn dòng để chỉnh sửa</b>Đồng bộ dữ liệu và chứng từ</div>
+      <div class="fact"><b>Không cần public Sheet</b>Không nhúng iframe</div>
+      <div class="fact"><b>Di chuyển tháng khi sửa ngày</b>Đổi tab Sheet và thư mục Drive tương ứng</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Security -->
+<section class="slide" aria-label="Bảo mật">
+  <div class="inner">
+    <h2>Bảo mật theo từng lớp</h2>
+    <p class="lead">Mỗi lớp chặn một kiểu rủi ro khác nhau.</p>
+    <div class="layers">
+      <div class="layer k"><h3>Phiên đăng nhập</h3><p>Token nằm trong cookie HTTP-only: JavaScript trên trang không đọc được.</p></div>
+      <div class="layer k"><h3>Vai trò</h3><p>Đọc từ <code>app_metadata</code> của Supabase; không tin vai trò do trình duyệt gửi lên.</p></div>
+      <div class="layer k"><h3>Khóa bí mật &amp; OAuth</h3><p>Supabase secret key chỉ ở backend; Google refresh token được mã hóa AES-256-GCM trước khi lưu và không trả về frontend.</p></div>
+      <div class="layer k"><h3>Phân quyền dữ liệu</h3><p>Row Level Security khi đọc danh mục; mọi API quản trị đều kiểm tra quyền admin.</p></div>
+      <div class="layer d"><h3>Kiểm tra đầu vào</h3><p>ID Drive, ID Sheet, ngày và tên tab phải đúng định dạng trước khi gọi Google.</p></div>
+      <div class="layer d"><h3>Production cross-origin</h3><p>API chỉ cho phép frontend production đã định trước gọi kèm cookie; cookie dùng <code>Secure</code> và <code>SameSite=None</code> trên HTTPS.</p></div>
+      <div class="layer g"><h3>Chống chèn công thức</h3><p>Chữ bắt đầu bằng <code>=</code> <code>+</code> <code>-</code> <code>@</code> được ghi vào Sheets như chữ thường.</p></div>
+    </div>
+  </div>
+<details class="notes"><summary>Ghi chú người nói</summary><div class="nb">
+<p class="say">“Không lớp nào hoàn hảo, nên mỗi lớp chặn một kiểu rủi ro. Kẻ xấu phải vượt qua nhiều lớp mới gây hại được.”</p>
+<h4>Thuật ngữ</h4>
+<dl>
+<dt>Cookie HTTP-only</dt><dd>Token lưu trong cookie <code>pt-access-token</code>, <code>pt-refresh-token</code>; JavaScript trên trang không đọc được. Như vé gửi xe bảo vệ giữ, không đưa tận tay.</dd>
+<dt>Access / refresh token</dt><dd>Access token: vé ngắn hạn để gọi API. Refresh token: xin vé mới khi vé cũ hết hạn, không phải đăng nhập lại.</dd>
+<dt>sameSite=lax, secure</dt><dd><code>lax</code>: trang lạ không lợi dụng cookie để gửi request thay bạn. <code>secure</code>: production chỉ gửi cookie qua HTTPS.</dd>
+<dt>app_metadata</dt><dd>Vai trò lưu ở nơi chỉ server sửa được. <code>user_metadata</code> người dùng tự sửa được nên không dùng để phân quyền. Như chức vụ trong hồ sơ nhân sự, không phải trên danh thiếp tự in.</dd>
+<dt>Secret key</dt><dd>Chìa khóa vạn năng của Supabase, bỏ qua mọi giới hạn. Chỉ backend dùng, sau khi đã xác nhận là admin.</dd>
+<dt>RLS</dt><dd>Luật trong database quyết định ai thấy dòng nào. Ở đây: người đã đăng nhập chỉ đọc được danh mục đang <code>is_active</code>.</dd>
+<dt>Kiểm tra đầu vào</dt><dd>ID Drive/Sheet chỉ gồm <code>A-Z a-z 0-9 _ -</code>; ngày <code>YYYY-MM-DD</code>; tên tab <code>Tháng M/YYYY</code>. Sai thì trả 400, không gọi Google.</dd>
+<dt>Chống chèn công thức</dt><dd>Gõ tên shop <code>=IMPORTXML(...)</code> thì Sheets sẽ chạy như công thức. Hệ thống thêm dấu <code>'</code> ở đầu để thành chữ thường.</dd>
+</dl>
+<h4>Câu hỏi có thể gặp</h4>
+<dl class="qa">
+<dt>Sao không lưu token trong localStorage?</dt><dd>Nếu trang bị chèn mã độc (XSS), mã đó đọc được localStorage và lấy cắp token. Cookie HTTP-only thì không đọc được.</dd>
+<dt>Sửa request để tự nhận là admin được không?</dt><dd>Không. Backend không tin vai trò do trình duyệt gửi. Mỗi API quản trị gọi <code>requireAdmin()</code>: xác minh token với Supabase rồi đọc vai trò từ <code>app_metadata</code>.</dd>
+<dt>Vì sao phải kiểm tra ID Drive?</dt><dd>ID được ghép vào câu truy vấn tìm kiếm của Drive. ID có dấu <code>'</code> có thể làm truy vấn trả về thư mục ngoài phạm vi. Chỉ cho đúng bộ ký tự hợp lệ là chặn được.</dd>
+</dl></div></details>
+</section>
+
+<!-- 9. API -->
+<section class="slide" aria-label="API">
+  <div class="inner">
+    <h2>API trong một trang</h2>
+    <p class="lead">Mọi request từ giao diện đi qua một axios instance dùng chung.</p>
+    <div class="api">
+      <div class="grp"><h3>Đăng nhập <small>công khai / user</small></h3>
+        <div class="ep"><span class="mth POST">POST</span><code>/api/auth/login</code></div>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/auth/me</code></div>
+        <div class="ep"><span class="mth POST">POST</span><code>/api/auth/logout</code></div>
+      </div>
+      <div class="grp"><h3>Nhập hàng <small>user</small></h3>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/lookups</code></div>
+        <div class="ep"><span class="mth POST">POST</span><code>/api/procure</code></div>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/procure/edit</code></div>
+        <div class="ep"><span class="mth PATCH">PATCH</span><code>/api/procure/edit</code></div>
+        <div class="ep"><span class="mth DELETE">DELETE</span><code>/api/procure/edit</code></div>
+      </div>
+      <div class="grp"><h3>Google Drive <small>user</small></h3>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/drive/folders</code></div>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/drive/spreadsheets</code></div>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/drive/sheet-data</code></div>
+      </div>
+      <div class="grp"><h3>Tùy chọn cá nhân <small>user</small></h3>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/preferences/drive</code></div>
+        <div class="ep"><span class="mth PATCH">PATCH</span><code>/api/preferences/drive</code></div>
+      </div>
+      <div class="grp admin"><h3>Quản lý người dùng <small>admin</small></h3>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/admin/users</code></div>
+        <div class="ep"><span class="mth POST">POST</span><code>/api/admin/users</code></div>
+        <div class="ep"><span class="mth PATCH">PATCH</span><code>/api/admin/users/:id</code></div>
+        <div class="ep"><span class="mth DELETE">DELETE</span><code>/api/admin/users/:id</code></div>
+      </div>
+      <div class="grp admin wide"><h3>Quản lý danh mục <small>admin: products, purchase-channels, payment-methods</small></h3>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/admin/lookups/:resource</code></div>
+        <div class="ep"><span class="mth POST">POST</span><code>/api/admin/lookups/:resource</code></div>
+        <div class="ep"><span class="mth PATCH">PATCH</span><code>/api/admin/lookups/:resource/:id</code></div>
+        <div class="ep"><span class="mth DELETE">DELETE</span><code>/api/admin/lookups/:resource/:id</code></div>
+      </div>
+      <div class="grp admin"><h3>Kết nối Google <small>admin</small></h3>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/admin/google/status</code></div>
+        <div class="ep"><span class="mth GET">GET</span><code>/api/admin/google/connect</code></div>
+        <div class="ep"><span class="mth POST">POST</span><code>/api/admin/google/disconnect</code></div>
+      </div>
+    </div>
+  </div>
+<details class="notes"><summary>Ghi chú người nói</summary><div class="nb">
+<p class="say">“API theo REST: đường dẫn là danh từ (cái gì), method là động từ (làm gì). Nhìn nhãn màu là biết endpoint đọc, tạo, sửa hay xóa.”</p>
+<h4>Thuật ngữ</h4>
+<dl>
+<dt>GET / POST / PATCH / DELETE</dt><dd>Đọc / tạo mới / sửa một phần / xóa.</dd>
+<dt>:resource, :id</dt><dd>Phần thay đổi trong URL. <code>/api/admin/lookups/products/5</code> là bản ghi số 5 của danh mục hàng hóa.</dd>
+<dt>công khai / user / admin</dt><dd>Ai cũng gọi được / phải đăng nhập / phải là admin.</dd>
+<dt>axios instance dùng chung</dt><dd>Một cấu hình cho cả app: địa chỉ backend, chờ tối đa 30 giây, luôn gửi cookie (<code>withCredentials</code>), gặp 401 thì về màn đăng nhập.</dd>
+<dt>multipart/form-data</dt><dd>Kiểu gửi của <code>POST /api/procure</code>: một request vừa có chữ vừa có file ảnh.</dd>
+<dt>offset / limit</dt><dd>Cho <code>sheet-data</code>: bỏ qua bao nhiêu dòng, lấy bao nhiêu dòng (tối đa 5). “Tải thêm” lấy tiếp 5 dòng sau.</dd>
+<dt>Mã trạng thái</dt><dd>200 OK, 201 đã tạo, 400 dữ liệu sai, 401 chưa đăng nhập, 403 không đủ quyền, 404 không có, 409 trùng (SKU đã tồn tại), 500 lỗi máy chủ.</dd>
+</dl>
+<h4>Câu hỏi có thể gặp</h4>
+<dl class="qa">
+<dt>Sao có cả /api/lookups và /api/admin/lookups?</dt><dd><code>/api/lookups</code> cho form: chỉ mục đang dùng, chạy dưới quyền người dùng nên chịu RLS. <code>/api/admin/lookups</code> cho quản trị: thấy cả mục đã ẩn, dùng secret key sau khi xác nhận admin.</dd>
+<dt>PATCH khác PUT thế nào?</dt><dd>PATCH chỉ gửi trường cần sửa (ví dụ chỉ đổi <code>is_active</code>). PUT thường thay toàn bộ bản ghi. Dự án dùng PATCH.</dd>
+<dt>Sao bắt buộc dùng chung axios instance?</dt><dd>Để request nào cũng có cookie, cùng timeout, cùng cách xử lý hết phiên. Tự gọi <code>fetch</code> ở từng chỗ rất dễ quên một trong ba thứ đó. Đây là quy ước mục 14 của tài liệu.</dd>
+</dl></div></details>
+</section>
+
+<!-- 10. Data -->
+<section class="slide" aria-label="Dữ liệu">
+  <div class="inner">
+    <h2>Dữ liệu nằm ở đâu</h2>
+    <p class="lead">Supabase giữ danh mục, tùy chọn cá nhân và kết nối Google. Đơn hàng vẫn nằm ở nơi phù hợp với nghiệp vụ: Drive và Sheets.</p>
+    <div class="data">
+      <div class="tbl"><h3>products</h3><div>id <span>khóa chính</span></div><div>sku <span>duy nhất</span></div><div>ten_hang_hoa <span>tên hàng</span></div><div>is_active <span>hiện trong form</span></div></div>
+      <div class="tbl"><h3>purchase_channels</h3><div>id <span>khóa chính</span></div><div>name <span>tên kênh</span></div><div>sort_order <span>thứ tự</span></div><div>is_default <span>mặc định duy nhất</span></div><div>is_active <span>đang dùng</span></div></div>
+      <div class="tbl"><h3>payment_methods</h3><div>id <span>khóa chính</span></div><div>name <span>tên phương thức</span></div><div>sort_order <span>thứ tự</span></div><div>is_default <span>mặc định duy nhất</span></div><div>is_active <span>đang dùng</span></div></div>
+      <div class="tbl"><h3>user_drive_preferences</h3><div>user_id <span>khóa theo tài khoản</span></div><div>default_folder_id <span>Drive mặc định</span></div><div>default_spreadsheet_id <span>Sheet mặc định</span></div><div>updated_at <span>thời điểm lưu</span></div></div>
+      <div class="tbl"><h3>google_oauth_connections</h3><div>id = 1 <span>một kết nối hệ thống</span></div><div>refresh_token_ciphertext <span>token đã mã hóa</span></div><div>connected_at <span>thời điểm kết nối</span></div><div>disabled <span>ngắt kết nối an toàn</span></div></div>
+      <div class="note"><b>Nguồn dữ liệu theo mục đích</b>Tài khoản và vai trò: Supabase Auth.<br>Ảnh chứng từ: Google Drive.<br>Nhật ký đơn: Google Sheets.<br><br>Không đưa token Google hay secret key xuống frontend.</div>
+    </div>
+  </div>
+<details class="notes"><summary>Ghi chú người nói</summary><div class="nb">
+<p class="say">“Supabase giữ những thứ cần quản lý chặt: tài khoản và danh mục. Đơn hàng nằm ở nơi người bán quen dùng: ảnh trên Drive, sổ trên Sheets.”</p>
+<h4>Thuật ngữ</h4>
+<dl>
+<dt>Khóa chính (id)</dt><dd>Số định danh duy nhất cho mỗi dòng, database tự tăng.</dd>
+<dt>sku duy nhất</dt><dd>Không có hai hàng hóa trùng SKU; thêm trùng nhận lỗi 409.</dd>
+<dt>is_active</dt><dd>Bật/tắt hiển thị trong form mà không xóa dữ liệu. Ngừng bán thì tắt, cần lại thì bật.</dd>
+<dt>sort_order</dt><dd>Thứ tự hiển thị các nút kênh mua, phương thức thanh toán.</dd>
+<dt>is_default</dt><dd>Đánh dấu lựa chọn mặc định cho kênh mua hoặc phương thức thanh toán. Database ràng buộc mỗi danh mục chỉ có một mục mặc định.</dd>
+<dt>user_drive_preferences</dt><dd>Lưu thư mục Drive và Spreadsheet mặc định theo từng người dùng. RLS bảo đảm người dùng chỉ đọc và sửa tùy chọn của chính mình.</dd>
+<dt>google_oauth_connections</dt><dd>Lưu một kết nối Google dùng cho hệ thống. Refresh token đã được backend mã hóa AES-256-GCM; client không có policy để đọc bảng này.</dd>
+<dt>ten_hang_hoa ↔ tenHangHoa</dt><dd>Database dùng <code>snake_case</code>, JavaScript dùng <code>camelCase</code>; backend tự chuyển đổi, đúng tinh thần ORM.</dd>
+<dt>Supabase Auth</dt><dd>Phần quản lý tài khoản có sẵn: email, mật khẩu đã băm, vai trò. Ứng dụng không tự lưu mật khẩu.</dd>
+</dl>
+<h4>Câu hỏi có thể gặp</h4>
+<dl class="qa">
+<dt>Sao đơn hàng không lưu vào database?</dt><dd><b>Lợi:</b> người bán xem, lọc, in, chia sẻ ngay trên Sheets quen thuộc; chứng từ trên Drive nằm cạnh dòng sổ. <b>Đánh đổi:</b> khó thống kê phức tạp, không có ràng buộc dữ liệu. <b>Khi nào đổi:</b> cần báo cáo tồn kho, công nợ, hoặc nhiều người cùng sửa đơn thì thêm bảng <code>orders</code> trong Postgres.</dd>
+<dt>Xóa một hàng hóa thì đơn cũ có hỏng không?</dt><dd>Không. Dòng trên Sheets lưu tên hàng dạng chữ tại thời điểm nhập, không tham chiếu <code>id</code>. Vì vậy nên tắt <code>is_active</code> thay vì xóa để danh mục giữ lịch sử.</dd>
+<dt>Có bảng users riêng không?</dt><dd>Không. Tài khoản nằm trong Supabase Auth, vai trò trong <code>app_metadata</code>. Các bảng trên slide là dữ liệu nghiệp vụ và cấu hình mà ứng dụng tự quản lý.</dd>
+</dl></div></details>
+</section>
+
+<!-- 11. Deployment -->
+<section class="slide" aria-label="Triển khai và phát hành">
+  <div class="inner">
+    <h2>Thiết kế cho môi trường vận hành thật</h2>
+    <p class="lead">Mục tiêu không chỉ là chạy local: frontend, API và quy trình phát hành được tách rõ để có thể bảo trì và triển khai an toàn.</p>
+    <div class="deploy">
+      <div class="node">
+        <h3>1. Frontend</h3>
+        <p>React + Vite được build và triển khai trên <b>Cloudflare Pages</b>. Chỉ nhận các biến môi trường <code>VITE_</code> an toàn cho client.</p>
+      </div>
+      <div class="node">
+        <h3>2. Backend API</h3>
+        <p>Next.js được build bằng Vinext và triển khai trên <b>Cloudflare Workers</b>. Secrets runtime nằm ngoài mã nguồn và frontend.</p>
+      </div>
+      <div class="node">
+        <h3>3. Phát hành</h3>
+        <p><b>GitHub Actions</b> chạy khi cập nhật <code>main</code>: triển khai Worker trước, sau đó build và deploy Pages nếu backend thành công.</p>
+      </div>
+    </div>
+    <p class="end">Nguyên tắc thiết kế: tách trách nhiệm, giữ secrets đúng chỗ và tự động hóa các bước lặp lại.</p>
+  </div>
+<details class="notes"><summary>Ghi chú người nói</summary><div class="nb">
+<p class="say">“Slide này nói về cách thiết kế để vận hành, không phải để khoe số liệu. Tôi tách frontend, API và pipeline để từng phần có trách nhiệm rõ ràng.”</p>
+<h4>Câu hỏi có thể gặp</h4>
+<dl class="qa">
+<dt>Vì sao backend phải deploy trước frontend?</dt><dd>Frontend mới có thể phụ thuộc vào API mới. Dùng <code>needs: deploy-backend</code> giúp ngăn frontend được phát hành khi backend deploy thất bại.</dd>
+<dt>Secrets để ở đâu?</dt><dd>Secrets dùng ở runtime của Worker hoặc GitHub Environment <code>production</code>; không commit vào repository và không đặt vào biến <code>VITE_</code>.</dd>
+</dl></div></details>
+</section>
+
+<!-- 12. Limits -->
+<section class="slide" aria-label="Giới hạn và hướng tiếp theo">
+  <div class="inner">
+    <h2>Giới hạn thiết kế và hướng phát triển</h2>
+    <p class="lead">Đây là các quyết định và giới hạn kỹ thuật cần tiếp tục cải thiện; không phải phần tổng kết kết quả vận hành hay KPI sản phẩm.</p>
+    <div class="two">
+      <div class="list lim"><h3>Giới hạn</h3><ul>
+        <li>Chưa có test tự động</li>
+        <li>Ảnh tải lên cùng request tạo đơn: nhiều ảnh lớn thì chờ lâu</li>
+        <li>Danh sách thư mục phụ thuộc quyền của tài khoản Google</li>
+        <li>Email đặt lại mật khẩu bị Supabase giới hạn tần suất</li>
+        <li>Camera và QR cần HTTPS hoặc localhost</li>
+      </ul></div>
+      <div class="list nxt"><h3>Hướng tiếp theo</h3><ul>
+        <li>Thêm test cho các luồng chính</li>
+        <li>Chặn tạo trùng khi cùng mã đơn được lưu hai lần</li>
+        <li>Bổ sung test tự động cho API, form và các tình huống lỗi Google</li>
+        <li>Xem xét cơ chế chống tạo trùng theo mã đơn hàng và vận đơn</li>
+        <li>Tách nhỏ thêm các phần giao diện nghiệp vụ để dễ bảo trì</li>
+        <li>Cân nhắc bảng <code>orders</code> trong Postgres khi cần báo cáo và thống kê phức tạp</li>
+      </ul></div>
+    </div>
+    <p class="end">Cảm ơn. Câu hỏi về ý tưởng và thiết kế?</p>
+  </div>
+</section>
+
+</div>
+
+<aside class="notes-panel" id="notesPanel" aria-label="Ghi chú người nói" aria-live="polite"></aside>
+
+<nav class="bar" aria-label="Điều hướng slide">
+  <button type="button" id="prev" aria-label="Slide trước">←</button>
+  <button type="button" id="next" aria-label="Slide sau">→</button>
+  <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+  <button type="button" id="notesBtn" aria-pressed="false" aria-controls="notesPanel" title="Hiện/ẩn ghi chú (phím N)">Ghi chú (N)</button>
+  <span class="hint">Cuộn dọc để xem · phím ← → để nhảy phần</span>
+  <span class="count" id="count" aria-live="polite"></span>
+</nav>
+
+<script>
+(function(){
+  const slides = [...document.querySelectorAll('.slide')];
+  const prev = document.getElementById('prev'), next = document.getElementById('next');
+  const panel = document.getElementById('notesPanel'), notesBtn = document.getElementById('notesBtn');
+  const progress = document.getElementById('prog'), count = document.getElementById('count');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let i = 0;
+
+  slides.forEach((slide, index) => {
+    slide.style.zIndex = String(index + 1);
+    slide.style.setProperty('--stack-scale', '1');
+    slide.style.setProperty('--stack-opacity', '1');
+    slide.style.setProperty('--stack-shift', '0px');
+  });
+
+  function renderNotes(){
+    const n = slides[i].querySelector('.notes .nb');
+    const title = slides[i].getAttribute('aria-label');
+    panel.innerHTML = '<div class="ttl"><b>' + title + '</b><small>Slide ' + (i + 1) + '</small></div>' +
+      (n ? '<div class="nb">' + n.innerHTML + '</div>' : '<p class="empty">Slide này không có ghi chú.</p>');
+    panel.scrollTop = 0;
+  }
+  function toggleNotes(force){
+    const on = typeof force === 'boolean' ? force : !document.body.classList.contains('notes-on');
+    document.body.classList.toggle('notes-on', on);
+    notesBtn.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem('pt-notes', on ? '1' : '0'); } catch (e) {}
+  }
+  notesBtn.onclick = () => toggleNotes();
+
+  function setActive(n, updateHash){
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('on', k === i));
+    prev.disabled = i === 0; next.disabled = i === slides.length - 1;
+    count.textContent = (i + 1) + ' / ' + slides.length;
+    progress.style.width = ((i + 1) / slides.length * 100) + '%';
+    renderNotes();
+    if (updateHash && location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  function go(n, behavior){
+    const target = Math.max(0, Math.min(slides.length - 1, n));
+    setActive(target, true);
+    slides[target].scrollIntoView({ behavior: behavior || (reduceMotion ? 'auto' : 'smooth'), block: 'start' });
+  }
+
+  function updateStack(){
+    const viewport = Math.max(window.innerHeight, 1);
+    const scrollY = window.scrollY;
+    let active = 0;
+    let closest = Infinity;
+
+    slides.forEach((slide, index) => {
+      const distance = scrollY - slide.offsetTop;
+      const progressValue = index === slides.length - 1 ? 0 : Math.max(0, Math.min(1, distance / viewport));
+      slide.style.setProperty('--stack-scale', String(1 - progressValue * 0.075));
+      slide.style.setProperty('--stack-opacity', String(1 - progressValue * 0.56));
+      slide.style.setProperty('--stack-shift', `${-progressValue * 18}px`);
+
+      const delta = Math.abs(slide.offsetTop - scrollY);
+      if (delta < closest) { closest = delta; active = index; }
+    });
+    if (active !== i) setActive(active, true);
+  }
+
+  prev.onclick = () => go(i - 1);
+  next.onclick = () => go(i + 1);
+  document.addEventListener('keydown', e => {
+    if (e.target.closest('input,textarea')) return;
+    if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); go(i + 1); }
+    else if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); go(i - 1); }
+    else if (e.key === 'n' || e.key === 'N') { if (!e.ctrlKey && !e.metaKey && !e.altKey) toggleNotes(); }
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(slides.length - 1);
+  });
+  try { if (localStorage.getItem('pt-notes') === '1') toggleNotes(true); } catch (e) {}
+  const start = parseInt(location.hash.slice(1), 10);
+  setActive(Number.isFinite(start) ? start - 1 : 0, false);
+  if (Number.isFinite(start)) slides[i].scrollIntoView({ behavior: 'auto', block: 'start' });
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if (!ticking) requestAnimationFrame(() => { updateStack(); ticking = false; });
+    ticking = true;
+  }, { passive: true });
+  window.addEventListener('resize', updateStack);
+  window.addEventListener('hashchange', () => {
+    const n = parseInt(location.hash.slice(1), 10);
+    if (Number.isFinite(n) && n - 1 !== i) go(n - 1, 'auto');
+  });
+  updateStack();
+})();
+</script>
+</body>
+</html>
