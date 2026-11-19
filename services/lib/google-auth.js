@@ -111,11 +111,14 @@ export async function getGoogleOAuth2Client() {
   const localRefreshToken = process.env.NODE_ENV !== 'production'
     ? process.env.GOOGLE_REFRESH_TOKEN
     : null;
-  const refreshToken = localRefreshToken || (connection?.disabled
+  // A saved OAuth connection is authoritative. In local development, the
+  // legacy env token must only be a fallback; otherwise reconnecting in the
+  // admin page would keep using the stale token from services/.env.
+  const refreshToken = connection?.disabled
     ? null
     : connection?.refresh_token_ciphertext
       ? decryptRefreshToken(connection.refresh_token_ciphertext)
-      : process.env.GOOGLE_REFRESH_TOKEN);
+      : localRefreshToken || process.env.GOOGLE_REFRESH_TOKEN;
   if (!refreshToken) throw new Error('Chưa kết nối tài khoản Google. Admin cần kết nối Google trước.');
 
   const client = createGoogleOAuthClient();

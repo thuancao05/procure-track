@@ -5,10 +5,13 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 const NAV_GROUPS = [
   {
     id: 'nhap-hang',
-    label: 'Nhập hàng',
+    label: 'Quản lý đơn hàng',
     icon: '📝',
     defaultOpen: true,
-    items: [{ to: '/', label: 'Phiếu nhập hàng', icon: '🧾', end: true }],
+    items: [
+      { to: '/', label: 'Phiếu nhập hàng', icon: '🧾', end: true },
+      { to: '/orders/edit', label: 'Chỉnh sửa đơn hàng', icon: '✏️' },
+    ],
   },
   {
     id: 'quan-tri',

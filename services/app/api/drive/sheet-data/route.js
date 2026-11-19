@@ -14,7 +14,7 @@ export async function GET(request) {
   const spreadsheetId = searchParams.get('spreadsheetId') || process.env.GOOGLE_SPREADSHEET_ID;
   const sheetTitle = searchParams.get('sheetTitle');
   const offset = Math.max(0, Number.parseInt(searchParams.get('offset') || '0', 10) || 0);
-  const limit = Math.min(5, Math.max(1, Number.parseInt(searchParams.get('limit') || '5', 10) || 5));
+  const limit = Math.min(10, Math.max(1, Number.parseInt(searchParams.get('limit') || '10', 10) || 10));
 
   if (!spreadsheetId || !DRIVE_ID_PATTERN.test(spreadsheetId)) {
     return NextResponse.json({ success: false, error: 'Spreadsheet ID không hợp lệ.' }, { status: 400 });
@@ -41,6 +41,7 @@ export async function GET(request) {
         message: `Chưa có sheet ${sheetTitle}.`,
         headers: [],
         rows: [],
+        rowNumbers: [],
         offset,
         limit,
         totalRows: 0,
@@ -55,24 +56,24 @@ export async function GET(request) {
       majorDimension: 'ROWS',
     });
     const values = response.data.values ?? [];
-    const rows = values.slice(1)
-      .map((row, index) => ({ row, index }))
+    const records = values.slice(1)
+      .map((row, index) => ({ row, rowNumber: index + 2, index }))
       .sort((a, b) => {
         const dateResult = String(b.row[0] ?? '').localeCompare(String(a.row[0] ?? ''));
         return dateResult || b.index - a.index;
-      })
-      .map(({ row }) => row);
-    const pagedRows = rows.slice(offset, offset + limit);
+      });
+    const page = records.slice(offset, offset + limit);
     return NextResponse.json({
       success: true,
       sheetExists: true,
       sheetTitle,
       headers: values[0] ?? [],
-      rows: pagedRows,
+      rows: page.map(({ row }) => row),
+      rowNumbers: page.map(({ rowNumber }) => rowNumber),
       offset,
       limit,
-      totalRows: rows.length,
-      hasMore: offset + pagedRows.length < rows.length,
+      totalRows: records.length,
+      hasMore: offset + page.length < records.length,
     });
   } catch (error) {
     const status = error?.code === 404 ? 404 : 500;
