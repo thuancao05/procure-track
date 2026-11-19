@@ -4,7 +4,7 @@ import { createAuthClient, isAdminConfigured, isSupabaseConfigured } from './sup
 
 const ACCESS_COOKIE = 'pt-access-token';
 const REFRESH_COOKIE = 'pt-refresh-token';
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 30; // 30 ngày
+const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; // 7 ngày
 
 const cookieOptions = {
   httpOnly: true,
