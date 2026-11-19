@@ -33,7 +33,7 @@ function EyeOffIcon() {
 }
 
 export default function Login({ onLogin }) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,7 +44,7 @@ export default function Login({ onLogin }) {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password });
+      const res = await api.post('/auth/login', { username, password });
       onLogin(res.data.user);
     } catch (err) {
       setError(err.response?.data?.error ?? 'Không thể kết nối tới server.');
@@ -66,12 +66,12 @@ export default function Login({ onLogin }) {
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Email</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Username</label>
             <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className={inputClass}
               required
             />

@@ -40,7 +40,7 @@ export default function UsersPage({ currentUser }) {
 
   // Modal: { mode: 'create' } | { mode: 'edit', user } | { mode: 'delete', user }
   const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({ email: '', password: '', role: 'staff' });
+  const [form, setForm] = useState({ username: '', password: '', role: 'staff' });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -63,7 +63,7 @@ export default function UsersPage({ currentUser }) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? users.filter((u) => u.email?.toLowerCase().includes(q)) : users;
+    return q ? users.filter((u) => u.username?.toLowerCase().includes(q)) : users;
   }, [users, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -76,13 +76,13 @@ export default function UsersPage({ currentUser }) {
   const closeModal = useCallback(() => setModal(null), []);
 
   const openCreate = () => {
-    setForm({ email: '', password: '', role: 'staff' });
+    setForm({ username: '', password: '', role: 'staff' });
     setFormError('');
     setModal({ mode: 'create' });
   };
 
   const openEdit = (user) => {
-    setForm({ email: user.email, password: '', role: user.role });
+    setForm({ username: user.username, password: '', role: user.role });
     setFormError('');
     setModal({ mode: 'edit', user });
   };
@@ -102,6 +102,7 @@ export default function UsersPage({ currentUser }) {
         await api.post('/admin/users', form);
       } else {
         const payload = {};
+        if (form.username !== modal.user.username) payload.username = form.username;
         if (form.role !== modal.user.role) payload.role = form.role;
         if (form.password) payload.password = form.password;
         if (Object.keys(payload).length === 0) {
@@ -164,7 +165,7 @@ export default function UsersPage({ currentUser }) {
             setSearch(e.target.value);
             setPage(1);
           }}
-          placeholder="🔍 Tìm theo email..."
+          placeholder="🔍 Tìm theo username..."
           className={inputClass}
         />
       </div>
@@ -189,7 +190,7 @@ export default function UsersPage({ currentUser }) {
               <li key={user.id} className="px-4 sm:px-6 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <div className="min-w-0 flex-1 basis-56">
                   <p className="font-medium text-slate-800 truncate">
-                    {user.email}
+                    {user.username}
                     {isSelf && <span className="ml-1.5 text-xs font-normal text-slate-400">(bạn)</span>}
                   </p>
                   <p className="text-xs text-slate-500 truncate">Đăng nhập gần nhất: {formatDate(user.lastSignInAt)}</p>
@@ -231,14 +232,13 @@ export default function UsersPage({ currentUser }) {
         <Modal title={modal.mode === 'create' ? 'Thêm người dùng' : 'Sửa người dùng'} onClose={closeModal}>
           <form onSubmit={handleSave} className="space-y-4">
             <div>
-              <label className={labelClass} htmlFor="user-email">Email</label>
+              <label className={labelClass} htmlFor="user-username">Username</label>
               <input
-                id="user-email"
-                type="email"
+                id="user-username"
+                type="text"
                 autoComplete="off"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                disabled={modal.mode === 'edit'}
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
                 required
                 autoFocus={modal.mode === 'create'}
                 className={`${inputClass} disabled:bg-slate-100 disabled:text-slate-500`}
@@ -295,7 +295,7 @@ export default function UsersPage({ currentUser }) {
       {modal?.mode === 'delete' && (
         <Modal title="Xóa người dùng?" onClose={closeModal}>
           <p className="text-sm text-slate-600">
-            Xóa tài khoản <b className="text-slate-800">{modal.user.email}</b>? Người này sẽ không thể đăng nhập nữa.
+            Xóa tài khoản <b className="text-slate-800">{modal.user.username}</b>? Người này sẽ không thể đăng nhập nữa.
             Thao tác này không thể hoàn tác.
           </p>
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">

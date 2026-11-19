@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase';
 import { errorJson } from '@/lib/admin-lookups';
-import { authErrorMessage, isUuid, toApiUser, validatePassword, validateRole } from '@/lib/admin-users';
+import { authErrorMessage, isUuid, toApiUser, validatePassword, validateRole, validateUsername } from '@/lib/admin-users';
 
 // PATCH /api/admin/users/:id — đổi vai trò và/hoặc đặt lại mật khẩu
 export async function PATCH(request, { params }) {
@@ -14,6 +14,19 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json().catch(() => ({}));
   const update = {};
+
+  if (body?.username !== undefined) {
+    const username = validateUsername(body.username);
+    if (username.error) return errorJson(400, username.error);
+    const admin = createAdminClient();
+    const { data: usersData, error: usersError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (usersError) return errorJson(500, authErrorMessage(usersError));
+    const usernameExists = usersData.users.some((user) =>
+      user.id !== id && (user.user_metadata?.username || user.email?.split('@')[0] || '').toLowerCase() === username.value
+    );
+    if (usernameExists) return errorJson(409, 'Username này đã có tài khoản.');
+    update.user_metadata = { username: username.value };
+  }
 
   if (body?.role !== undefined) {
     const role = validateRole(body.role);
