@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { requireUser } from '@/lib/auth';
 import { getGoogleOAuth2Client } from '@/lib/google-auth';
+import { buildOrderFolderName } from '@/lib/order-folder';
 import { parseMultipartFormData } from '@/lib/multipart';
 
 const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
@@ -270,7 +271,7 @@ export async function PATCH(request) {
     if (!accessToken) throw new Error('Không lấy được Google access token.');
     for (const image of newImages) await uploadFileToDrive(accessToken, image, folderId);
 
-    const orderFolderName = `${ngay}.${fields.maDonHang}.${fields.maVanDon}`;
+    const orderFolderName = buildOrderFolderName(ngay, fields.maDonHang, fields.maVanDon, fields.tenShop);
     const oldParentId = folderResponse.data.parents?.[0];
     const oldParent = oldParentId
       ? await drive.files.get({ fileId: oldParentId, fields: 'id,parents,name' })

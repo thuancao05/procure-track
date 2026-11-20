@@ -11,6 +11,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/', label: 'Phiếu nhập hàng', icon: '🧾', end: true },
       { to: '/orders/edit', label: 'Chỉnh sửa đơn hàng', icon: '✏️' },
+      { to: '/orders/attention', label: 'Đơn hàng cần lưu ý', icon: '⚠️' },
     ],
   },
   {

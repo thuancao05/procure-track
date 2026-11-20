@@ -3,6 +3,15 @@ import { google } from 'googleapis';
 import { requireAdmin } from '@/lib/auth';
 import { getGoogleOAuth2Client, getStoredGoogleConnection } from '@/lib/google-auth';
 
+function maskEmail(email) {
+  if (typeof email !== 'string') return email;
+  const at = email.indexOf('@');
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const visibleCount = local.length >= 5 ? 2 : 1;
+  return `${local.slice(0, visibleCount)}***${local.slice(-visibleCount)}${email.slice(at)}`;
+}
+
 export async function GET() {
   const { errorResponse } = await requireAdmin();
   if (errorResponse) return errorResponse;
@@ -22,7 +31,10 @@ export async function GET() {
       const sheets = google.sheets({ version: 'v4', auth });
       try {
         const about = await drive.about.get({ fields: 'user(emailAddress,displayName)' });
-        googleAccount = about.data.user ?? null;
+        googleAccount = about.data.user ? {
+          ...about.data.user,
+          emailAddress: maskEmail(about.data.user.emailAddress),
+        } : null;
         driveAccess = true;
       } catch (error) {
         connectionError = error.message;

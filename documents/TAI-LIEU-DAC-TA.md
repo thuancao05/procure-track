@@ -47,6 +47,9 @@ apps/
     pages/
       UsersPage.jsx
       ResetPassword.jsx
+      EditOrdersPage.jsx
+      AttentionOrdersPage.jsx
+      GoogleSettingsPage.jsx
       lookupConfigs.js
     services/
       api.js
@@ -64,6 +67,7 @@ services/
     supabase.js
     admin-users.js
     admin-lookups.js
+    order-folder.js
 ```
 
 ## 4. Phân quyền
@@ -113,7 +117,7 @@ Admin có thể vào **Quản trị → Kết nối Google** để cấp quyền
 
 Màn hình đăng nhập nhận:
 
-- Email.
+- Username.
 - Mật khẩu.
 - Nút hiện/ẩn mật khẩu.
 
@@ -124,10 +128,12 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "email": "user@example.com",
+  "username": "nguyen.van.a",
   "password": "..."
 }
 ```
+
+Username được lưu trong `user_metadata` của Supabase. Backend ánh xạ username sang email nội bộ của Supabase trước khi gọi `signInWithPassword`; tài khoản cũ chưa có metadata username được hỗ trợ bằng phần trước dấu `@` của email.
 
 ### 5.2. Đặt lại mật khẩu
 
@@ -149,16 +155,16 @@ Form nhập hàng gồm:
 |---|---|---:|---|
 | Ngày nhập | Date | Có | Định dạng `YYYY-MM-DD` |
 | Kênh mua | Radio | Có | Lấy từ danh mục `purchase_channels` |
-| Mã đơn hàng | Text | Có | Mã đơn từ nhà cung cấp/sàn |
+| Mã đơn hàng | Text | Không | Mã đơn từ nhà cung cấp/sàn |
 | Tên shop | Text | Có | Nhà cung cấp hoặc shop |
 | SKU | Text + datalist | Có | Có autocomplete/filter |
-| Tên hàng hóa | Select | Có | Tự điền khi SKU khớp |
+| Tên hàng hóa | Select | Không | Tự điền khi SKU khớp |
 | Số lượng | Number | Có | Số lượng nhập |
 | Phương thức thanh toán | Radio | Có | Lấy từ `payment_methods` |
 | Giá gốc | Số nghìn | Có | Nhập `100` được hiểu là `100.000 VNĐ` |
 | Giá thực trả | Số nghìn | Có | Nhập `120` được hiểu là `120.000 VNĐ` |
-| Mã vận đơn | Text | Có | Có nút quét QR |
-| Ảnh chứng từ | Nhiều file | Không | Có upload file và chụp camera |
+| Mã vận đơn | Text | Không | Có nút quét QR |
+| Ảnh chứng từ | Nhiều file | Có | Có upload file và chụp camera |
 
 Giá tiền hiển thị hậu tố `.000`. Ví dụ:
 
@@ -193,13 +199,13 @@ Camera yêu cầu `localhost` hoặc HTTPS.
 
 ### 5.6. Chọn Google Drive và Spreadsheet
 
-Form tải danh sách folder và Spreadsheet từ backend.
+Form tải danh sách folder và Spreadsheet từ backend; folder được hiển thị theo cây cha-con.
 
-Folder mặc định lấy từ `GOOGLE_PARENT_FOLDER_ID`.
+Folder mặc định ưu tiên thiết lập đã lưu của user; nếu chưa có thì dùng `GOOGLE_PARENT_FOLDER_ID`.
 
-Spreadsheet mặc định lấy từ `GOOGLE_SPREADSHEET_ID` nếu file đó nằm trong folder đang chọn.
+Spreadsheet mặc định ưu tiên thiết lập đã lưu của user; nếu chưa có thì dùng `GOOGLE_SPREADSHEET_ID`.
 
-Người dùng vẫn có thể chọn folder hoặc Spreadsheet khác nếu được trả về từ Google Drive.
+Người dùng vẫn có thể chọn folder hoặc Spreadsheet khác nếu được trả về từ Google Drive. Thiết lập mặc định riêng của user được ưu tiên hơn biến môi trường.
 
 ### 5.7. Viewer nhật ký trên homepage
 
@@ -210,6 +216,34 @@ Homepage có viewer chỉ đọc cho tab tháng tương ứng với ngày nhập
 - Lần đầu tải tối đa 5 dòng mới nhất; nút **Tải thêm 5 dòng** dùng để lazy load các dòng tiếp theo.
 - Hiển thị header và các dòng dữ liệu trong vùng cuộn.
 - Chỉ user đã đăng nhập mới gọi được viewer.
+
+### 5.8. Lưu thiết lập Drive theo user
+
+- User có thể chọn folder Drive và Spreadsheet trong cây folder cha-con.
+- Có thể đánh dấu folder/Spreadsheet là mặc định cho tài khoản bằng **Dùng làm mặc định**.
+- Các trang Phiếu nhập hàng, Chỉnh sửa đơn hàng và Đơn hàng cần lưu ý dùng lại thiết lập mặc định của user.
+
+### 5.9. Chỉnh sửa và xóa đơn hàng
+
+Trang **Chỉnh sửa đơn hàng** cho phép tải các dòng nhật ký theo tab tháng, lazy load 10 dòng/trang, sắp xếp theo cột, sửa thông tin đơn hàng, thêm/xóa ảnh chứng từ và xóa cả dòng nhật ký cùng folder chứng từ.
+
+### 5.10. Đơn hàng cần lưu ý
+
+Trang **Quản lý đơn hàng → Đơn hàng cần lưu ý** cho phép user chọn folder chứng từ và sổ nhật ký để đối chiếu. Mặc định lấy hai thiết lập đã lưu từ Phiếu nhập hàng.
+
+Hệ thống đối chiếu theo khóa `Ngày + Mã đơn hàng + Mã vận đơn`:
+
+- Nhật ký không có link folder hoặc link folder không còn tồn tại: cảnh báo **Thiếu folder chứng từ**.
+- Folder đơn hàng nằm dưới folder tháng nhưng không có dòng nhật ký tương ứng: cảnh báo **Thiếu nhật ký ghi hàng**.
+- Kết quả sắp xếp ngày gần nhất trước và phân trang 5 mục/trang.
+- Có link mở dòng trong Google Sheet hoặc mở folder Drive.
+- User có thể xóa riêng dòng nhật ký thừa hoặc folder chứng từ thừa; thao tác xóa có xác nhận và backend giới hạn đúng phạm vi nguồn đã chọn.
+
+### 5.11. Quy ước hiển thị và bảo mật
+
+- Giá gốc và giá thực trả trong các bảng được định dạng hàng nghìn theo locale Việt Nam, ví dụ `500.000`.
+- Email tài khoản Google trên trang kết nối chỉ hiển thị dạng che giữa, ví dụ `ng***yz@gmail.com`.
+- Username có thể tạo và chỉnh sửa từ trang quản trị; username phải dài 3-32 ký tự và không trùng.
 
 ## 6. Luồng xử lý tạo đơn hàng
 
@@ -227,8 +261,10 @@ Tháng {month}/{year}
 7. Backend tạo folder đơn hàng:
 
 ```text
-{ngay}.{maDonHang}.{maVanDon}
+{ngay}.{maDonHang}.{maVanDon}.{tenShop}
 ```
+
+Phần mã đơn hàng, mã vận đơn hoặc tên shop bị thiếu sẽ được bỏ qua, không dùng chuỗi thay thế. Ký tự không hợp lệ với tên Google Drive được thay bằng `-`.
 
 8. Backend upload toàn bộ ảnh vào folder đơn hàng.
 9. Backend tìm tab tháng trong Spreadsheet; nếu chưa có thì tạo tab và header.
@@ -256,7 +292,7 @@ http://localhost:3000/api
 
 | Method | Endpoint | Quyền | Mục đích |
 |---|---|---|---|
-| `POST` | `/api/auth/login` | Public | Đăng nhập email/password |
+| `POST` | `/api/auth/login` | Public | Đăng nhập username/password |
 | `GET` | `/api/auth/me` | User | Lấy user hiện tại |
 | `POST` | `/api/auth/logout` | User | Xóa phiên |
 
@@ -273,20 +309,33 @@ http://localhost:3000/api
 | `GET` | `/api/drive/folders` | User | Lấy danh sách folder và cấu hình mặc định |
 | `GET` | `/api/drive/spreadsheets?folderId=...` | User | Lấy Spreadsheet trong folder |
 | `GET` | `/api/drive/sheet-data?spreadsheetId=...&sheetTitle=...` | User | Đọc dữ liệu tab tháng để hiển thị viewer |
+| `GET` | `/api/drive/attention?page=...&folderId=...&spreadsheetId=...` | User | Đối chiếu nhật ký với folder chứng từ, 5 mục/trang |
+| `DELETE` | `/api/drive/attention` | User | Xóa riêng dòng nhật ký hoặc folder chứng từ thừa |
 
 ### 7.4. Nhập hàng
 
 | Method | Endpoint | Quyền | Content-Type |
 |---|---|---|---|
 | `POST` | `/api/procure` | User | `multipart/form-data` |
+| `GET` | `/api/procure/edit?spreadsheetId=...&sheetTitle=...&rowNumber=...` | User | Lấy chi tiết đơn hàng và ảnh chứng từ |
+| `PATCH` | `/api/procure/edit` | User | Cập nhật đơn hàng, đổi tên folder, thêm/xóa ảnh |
+| `DELETE` | `/api/procure/edit` | User | Xóa cả dòng nhật ký và folder chứng từ |
+| `GET` | `/api/procure/edit/image?fileId=...` | User | Đọc ảnh chứng từ từ Google Drive |
 
-### 7.5. Quản trị người dùng
+### 7.5. Thiết lập Drive theo user
+
+| Method | Endpoint | Quyền | Mục đích |
+|---|---|---|---|
+| `GET` | `/api/preferences/drive` | User | Lấy folder và Spreadsheet mặc định của user |
+| `PATCH` | `/api/preferences/drive` | User | Lưu hoặc bỏ thiết lập mặc định |
+
+### 7.6. Quản trị người dùng
 
 | Method | Endpoint | Quyền | Mục đích |
 |---|---|---|---|
 | `GET` | `/api/admin/users` | Admin | Danh sách user |
-| `POST` | `/api/admin/users` | Admin | Tạo user với password và role |
-| `PATCH` | `/api/admin/users/:id` | Admin | Đổi role/password |
+| `POST` | `/api/admin/users` | Admin | Tạo user với username, password và role |
+| `PATCH` | `/api/admin/users/:id` | Admin | Đổi username, role/password |
 | `DELETE` | `/api/admin/users/:id` | Admin | Xóa user |
 
 ### 7.7. Quản lý kết nối Google
@@ -300,7 +349,7 @@ http://localhost:3000/api
 
 User tạo từ màn hình quản trị được `email_confirm: true`, nên có thể đăng nhập ngay.
 
-### 7.6. Quản trị danh mục
+### 7.8. Quản trị danh mục
 
 Resource hợp lệ:
 
@@ -481,6 +530,9 @@ flowchart LR
         Upload([Chọn / chụp / xem / xóa ảnh])
         QR([Quét QR mã vận đơn])
         DriveSelect([Chọn thư mục và Spreadsheet])
+        Attention([Đơn hàng cần lưu ý])
+        Compare([Đối chiếu nhật ký và folder])
+        DeleteExtra([Xóa nhật ký/folder thừa])
         ManageProducts([Quản lý hàng hóa / SKU])
         ManageChannels([Quản lý kênh mua])
         ManagePayments([Quản lý phương thức thanh toán])
@@ -495,6 +547,9 @@ flowchart LR
     Staff --> Lookup
     Staff --> Upload
     Staff --> QR
+    Staff --> Attention
+    Attention --> Compare
+    Attention --> DeleteExtra
     Staff --> DriveSelect
 
     Admin --> Login
@@ -519,6 +574,8 @@ flowchart LR
     DriveSelect --> Drive
     Submit --> Drive
     Submit --> Sheets
+    Attention --> Drive
+    Attention --> Sheets
     Upload --> Submit
     QR --> Submit
 ```
@@ -538,15 +595,15 @@ Sơ đồ lớp dưới đây mô tả các lớp/đối tượng chính trong f
 classDiagram
     class User {
         +string id
-        +string email
+        +string username
         +string role
-        +login(email, password)
+        +login(username, password)
         +logout()
     }
 
     class AdminUser {
-        +createUser(email, password, role)
-        +updateUser(id, password, role)
+        +createUser(username, password, role)
+        +updateUser(id, username, password, role)
         +deleteUser(id)
         +manageLookups()
     }
@@ -859,7 +916,7 @@ Sau khi push hoặc merge PR, kiểm tra GitHub → **Actions** → **Deploy pro
 - Cấu hình CORS giữa Pages và Worker.
 - Cấu hình cookie cross-origin cho phiên đăng nhập production.
 - Kết nối và lưu Google OAuth token an toàn.
-- Dùng folder Drive và Spreadsheet mặc định từ biến môi trường.
+- Dùng folder Drive và Spreadsheet mặc định đã lưu theo user; biến môi trường là giá trị dự phòng.
 - Sửa xử lý response/token Google API trên Cloudflare Workers.
 - Bỏ phụ thuộc R2/Response Store để không yêu cầu thẻ thanh toán.
 - Chuyển nguồn deploy production về nhánh `main`.

@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { google } from 'googleapis';
 import { getGoogleOAuth2Client } from '@/lib/google-auth';
 import { parseMultipartFormData } from '@/lib/multipart';
+import { buildOrderFolderName } from '@/lib/order-folder';
 
 // ID của Google Drive / Sheets chỉ gồm chữ, số, '-' và '_'.
 // Chặn mọi ký tự khác (đặc biệt là dấu ') để không thể chèn thêm điều kiện vào câu truy vấn q.
@@ -159,7 +160,7 @@ export async function POST(request) {
     }
 
     // Tạo thư mục con của đơn hàng [Ngày].[MãĐơn].[MãVậnĐơn]
-    const orderFolderName = `${ngay}.${maDonHang}.${maVanDon}`;
+    const orderFolderName = buildOrderFolderName(ngay, maDonHang, maVanDon, tenShop);
     const orderFolderRes = await drive.files.create({
       resource: {
         name: orderFolderName,

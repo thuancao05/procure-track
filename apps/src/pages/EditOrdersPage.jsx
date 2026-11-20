@@ -9,6 +9,13 @@ const PAGE_SIZE = 10;
 const getCurrentYear = () => new Date().getFullYear();
 const getCurrentMonth = () => new Date().getMonth() + 1;
 
+const normalizeHeader = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const isMoneyHeader = (value) => ['gia goc', 'gia thuc tra'].includes(normalizeHeader(value));
+const formatMoneyDisplay = (value) => {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits ? Number(digits).toLocaleString('vi-VN') : '';
+};
+
 const dateSortValue = (value) => {
   const text = String(value ?? '').trim();
   let year; let month; let day;
@@ -320,9 +327,10 @@ export default function EditOrdersPage() {
                     <tr key={rowNumber} onClick={() => setEditingOrder({ rowNumber })} className="cursor-pointer border-t border-slate-100 hover:bg-blue-50">
                       {displayColumns.map(({ header, index: columnIndex }) => {
                         const value = String(row[columnIndex] ?? '');
+                        const displayValue = isMoneyHeader(header) ? formatMoneyDisplay(value) : value;
                         const link = header.trim().toLowerCase() === 'chứng từ' && /^https?:\/\//i.test(value);
                         const visibleLink = value.length > 5 ? `....${value.slice(-5)}` : value;
-                        return <td key={columnIndex} className="whitespace-nowrap px-3 py-2">{link ? <a href={value} target="_blank" rel="noopener noreferrer" title={value} onClick={(event) => event.stopPropagation()} className="text-blue-600 underline">{visibleLink}</a> : value}</td>;
+                        return <td key={columnIndex} className="whitespace-nowrap px-3 py-2">{link ? <a href={value} target="_blank" rel="noopener noreferrer" title={value} onClick={(event) => event.stopPropagation()} className="text-blue-600 underline">{visibleLink}</a> : displayValue}</td>;
                       })}
                       <td className="sticky right-0 bg-white px-3 py-2"><button type="button" onClick={(event) => { event.stopPropagation(); setEditingOrder({ rowNumber }); }} className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100">Chỉnh sửa</button></td>
                     </tr>

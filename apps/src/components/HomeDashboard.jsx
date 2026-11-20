@@ -50,6 +50,13 @@ const formatThousandUnits = (value) => {
   return digits ? Number(digits).toLocaleString('vi-VN') : '';
 };
 
+const normalizeHeader = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const isMoneyHeader = (value) => ['gia goc', 'gia thuc tra'].includes(normalizeHeader(value));
+const formatMoneyDisplay = (value) => {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits ? Number(digits).toLocaleString('vi-VN') : '';
+};
+
 const getCurrentYear = () => new Date().getFullYear();
 const getCurrentMonth = () => new Date().getMonth() + 1;
 
@@ -1173,6 +1180,7 @@ export default function HomeDashboard() {
                       <tr key={rowIndex} className="border-t border-slate-100 hover:bg-slate-50">
                         {sheetHeaders.map((header, columnIndex) => {
                           const value = String(row[columnIndex] ?? '');
+                          const displayValue = isMoneyHeader(header) ? formatMoneyDisplay(value) : value;
                           const isDocumentLink = header.trim().toLowerCase() === 'chứng từ' && /^https?:\/\//i.test(value);
                           return (
                             <td key={columnIndex} className="px-3 py-2 whitespace-nowrap text-slate-700">
@@ -1185,7 +1193,7 @@ export default function HomeDashboard() {
                                 >
                                   {value}
                                 </a>
-                              ) : value}
+                              ) : displayValue}
                             </td>
                           );
                         })}

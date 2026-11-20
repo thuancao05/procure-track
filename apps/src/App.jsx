@@ -8,6 +8,7 @@ import UsersPage from './pages/UsersPage';
 import ResetPassword from './pages/ResetPassword';
 import GoogleSettingsPage from './pages/GoogleSettingsPage';
 import EditOrdersPage from './pages/EditOrdersPage';
+import AttentionOrdersPage from './pages/AttentionOrdersPage';
 import { LOOKUP_CONFIGS } from './pages/lookupConfigs';
 import api, { UNAUTHORIZED_EVENT } from './services/api';
 
@@ -69,6 +70,7 @@ function App() {
       <Route element={<Layout user={user} onLogout={handleLogout} />}>
         <Route index element={<HomeDashboard />} />
         <Route path="orders/edit" element={<EditOrdersPage />} />
+        <Route path="orders/attention" element={<AttentionOrdersPage />} />
         <Route
           path="admin/products"
           element={adminOnly(<LookupManager key="products" config={LOOKUP_CONFIGS.products} />)}

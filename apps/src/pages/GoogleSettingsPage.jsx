@@ -3,6 +3,15 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useNotification } from '../components/NotificationProvider';
 
+function maskEmail(email) {
+  if (typeof email !== 'string') return email;
+  const at = email.indexOf('@');
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const visibleCount = local.length >= 5 ? 2 : 1;
+  return `${local.slice(0, visibleCount)}***${local.slice(-visibleCount)}${email.slice(at)}`;
+}
+
 export default function GoogleSettingsPage() {
   const { showConfirm } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -84,7 +93,7 @@ export default function GoogleSettingsPage() {
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <div className="border border-slate-200 rounded-xl p-4">
           <p className="text-xs uppercase tracking-wide text-slate-500">Tài khoản Google</p>
-          <p className="mt-2 font-medium text-slate-800">{status?.googleAccount?.emailAddress || 'Chưa xác định'}</p>
+          <p className="mt-2 font-medium text-slate-800">{maskEmail(status?.googleAccount?.emailAddress) || 'Chưa xác định'}</p>
           <p className="text-xs text-slate-500 mt-1">Nguồn: {status?.source === 'oauth' ? 'OAuth lưu an toàn' : status?.source === 'env' ? 'Biến môi trường cũ' : 'Chưa có'}</p>
         </div>
         <div className="border border-slate-200 rounded-xl p-4">
