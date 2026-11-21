@@ -3,6 +3,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import api from '../services/api';
 import { apiError, inputClass, labelClass, selectClass } from '../ui';
 import { useNotification } from './NotificationProvider';
+import OrderOcrPanel from './OrderOcrPanel';
 
 const todayDateString = () => {
   const today = new Date();
@@ -1051,6 +1052,7 @@ export default function HomeDashboard() {
               💡 Bạn có thể giữ phím Ctrl (hoặc Shift trên máy tính) hoặc chọn nhiều tệp trên điện thoại để tải lên một lúc tất cả các bill liên quan.
             </span>
           </div>
+            <OrderOcrPanel />
           </div>
 
           {/* Nút lưu: dính đáy màn hình trên mobile */}
