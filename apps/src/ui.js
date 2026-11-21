@@ -15,6 +15,18 @@ export const smallButtonClass =
 
 export const errorBoxClass = 'text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2';
 
-/** Lấy thông báo lỗi từ response axios. */
-export const apiError = (error, fallback = 'Đã có lỗi xảy ra khi kết nối tới server.') =>
-  error?.response?.data?.error ?? fallback;
+/** Lấy thông báo lỗi có ích từ response Axios, kể cả lỗi mạng/timeout. */
+export const apiError = (error, fallback = 'Không thể hoàn tất yêu cầu.') => {
+  const responseError = error?.response?.data?.error;
+  if (responseError) return responseError;
+  if (error?.code === 'ECONNABORTED' || error?.code === 'ETIMEDOUT') {
+    return 'Máy chủ phản hồi quá lâu. Vui lòng thử lại.';
+  }
+  if (error?.request && !error?.response) {
+    return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng hoặc trạng thái máy chủ rồi thử lại.';
+  }
+  if (error?.response?.status) {
+    return `Máy chủ trả về lỗi HTTP ${error.response.status}. Vui lòng thử lại hoặc liên hệ quản trị viên.`;
+  }
+  return error?.message || fallback;
+};

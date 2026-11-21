@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth';
 import { getGoogleOAuth2Client } from '@/lib/google-auth';
 import { buildOrderFolderName } from '@/lib/order-folder';
 import { parseMultipartFormData } from '@/lib/multipart';
+import { createAdminClient } from '@/lib/supabase';
 
 const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -48,6 +49,14 @@ function getFolderIdFromLink(value) {
 function asSheetText(value) {
   const text = value == null ? '' : String(value);
   return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+async function saveShopName(name) {
+  const shopName = String(name ?? '').trim();
+  const { error } = await createAdminClient()
+    .from('shops')
+    .upsert({ name: shopName }, { onConflict: 'normalized_name', ignoreDuplicates: true });
+  if (error) throw new Error(`Không thể lưu tên shop vào cơ sở dữ liệu: ${error.message}`);
 }
 
 function sheetRowToForm(row) {
@@ -239,6 +248,8 @@ export async function PATCH(request) {
       if (!Number.isFinite(Number(fields[key])) || Number(fields[key]) <= 0) return jsonError(400, `${key === 'soLuong' ? 'Số lượng' : key === 'giaGoc' ? 'Giá gốc' : 'Giá thực trả'} phải lớn hơn 0.`);
     }
     if (!Array.isArray(keepImageIds)) return jsonError(400, 'Danh sách ảnh cần giữ không hợp lệ.');
+
+    await saveShopName(fields.tenShop);
 
     const auth = await getGoogleOAuth2Client();
     const drive = google.drive({ version: 'v3', auth });

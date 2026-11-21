@@ -123,7 +123,9 @@ export default function EditOrdersPage() {
         : new Intl.Collator('vi', { numeric: true }).compare(left, right);
       return result
         ? (sortDirection === 'asc' ? result : -result)
-        : (sortDirection === 'asc' ? a.index - b.index : b.index - a.index);
+        // API đã sắp xếp các đơn cùng ngày theo dòng mới nhập trước.
+        // Giữ nguyên thứ tự đó, không đảo lại lần nữa ở giao diện.
+        : 0;
     })
     .map(({ row, rowNumber }) => ({ row, rowNumber })), [sheetHeaders, sheetRowNumbers, sheetRows, sortColumn, sortDirection]);
   const displayColumns = useMemo(() => {

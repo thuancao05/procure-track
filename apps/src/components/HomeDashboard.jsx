@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import api from '../services/api';
-import { inputClass, labelClass, selectClass } from '../ui';
+import { apiError, inputClass, labelClass, selectClass } from '../ui';
 import { useNotification } from './NotificationProvider';
 
 const todayDateString = () => {
@@ -94,6 +94,7 @@ export default function HomeDashboard() {
 
   // Danh mục từ backend (/api/lookups)
   const [products, setProducts] = useState([]);
+  const [shops, setShops] = useState([]);
   const [channels, setChannels] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loadingLookups, setLoadingLookups] = useState(true);
@@ -203,7 +204,9 @@ export default function HomeDashboard() {
         const right = String(b.row[sheetSortColumn] ?? '');
         const result = collator.compare(left, right);
         if (result !== 0) return sheetSortDirection === 'asc' ? result : -result;
-        return sheetSortDirection === 'asc' ? a.index - b.index : b.index - a.index;
+        // API đã sắp xếp các đơn cùng ngày theo hàng mới thêm trước.
+        // Không đảo lại ở đây, nếu không thứ tự nhập sẽ bị đảo lần thứ hai.
+        return 0;
       })
       .map(({ row }) => row);
   }, [sheetRows, sheetSortColumn, sheetSortDirection]);
@@ -354,6 +357,7 @@ export default function HomeDashboard() {
         const nextChannels = data.kenhMua ?? [];
         const nextPaymentMethods = data.phuongThucThanhToan ?? [];
         setProducts(data.products ?? []);
+        setShops(data.shops ?? []);
         setChannels(nextChannels);
         setPaymentMethods(nextPaymentMethods);
         setFormData((current) => ({
@@ -511,12 +515,13 @@ export default function HomeDashboard() {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((current) => ({ ...current, [name]: value }));
   };
 
   const handleMoneyChange = (e) => {
     const digits = e.target.value.replace(/\D/g, '');
-    setFormData({ ...formData, [e.target.name]: digits });
+    setFormData((current) => ({ ...current, [e.target.name]: digits }));
   };
 
   const captureCameraImage = () => {
@@ -543,21 +548,21 @@ export default function HomeDashboard() {
   const handleProductChange = (e) => {
     const { name, value } = e.target;
     const product = products.find((p) => p[name] === value);
-    setFormData({
-      ...formData,
+    setFormData((current) => ({
+      ...current,
       sku: product?.sku ?? '',
       tenHangHoa: product?.tenHangHoa ?? '',
-    });
+    }));
   };
 
   const handleSkuChange = (e) => {
     const sku = e.target.value;
     const product = products.find((p) => p.sku.toLowerCase() === sku.trim().toLowerCase());
-    setFormData({
-      ...formData,
+    setFormData((current) => ({
+      ...current,
       sku,
       tenHangHoa: product?.tenHangHoa ?? '',
-    });
+    }));
   };
 
   const lookupPlaceholder = (emptyLabel, list) =>
@@ -640,7 +645,7 @@ export default function HomeDashboard() {
       }
     } catch (error) {
       console.error("Lỗi khi gửi dữ liệu:", error);
-      await showAlert('Đã có lỗi xảy ra khi kết nối tới server.', { variant: 'error' });
+      await showAlert(apiError(error, 'Không thể tạo đơn hàng.'), { variant: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -877,7 +882,10 @@ export default function HomeDashboard() {
 
             <div>
               <label className={labelClass}>Tên Shop</label>
-              <input type="text" name="tenShop" value={formData.tenShop} placeholder="Tên nhà cung cấp / shop" onChange={handleChange} className={inputClass} required />
+              <input type="text" name="tenShop" value={formData.tenShop} list="shop-options" autoComplete="off" placeholder="Tên nhà cung cấp / shop" onChange={handleChange} className={inputClass} required />
+              <datalist id="shop-options">
+                {shops.map((shop) => <option key={shop} value={shop} />)}
+              </datalist>
             </div>
 
             <div>

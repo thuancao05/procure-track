@@ -18,7 +18,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [cameraMessage, setCameraMessage] = useState('');
-  const [lookups, setLookups] = useState({ products: [], channels: [], payments: [] });
+  const [lookups, setLookups] = useState({ products: [], channels: [], payments: [], shops: [] });
   const [loading, setLoading] = useState(true);
   const [orderLoaded, setOrderLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +66,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
             products: data.products ?? [],
             channels: (data.kenhMua ?? []).map((item) => typeof item === 'string' ? { name: item } : item),
             payments: (data.phuongThucThanhToan ?? []).map((item) => typeof item === 'string' ? { name: item } : item),
+            shops: data.shops ?? [],
           });
         }
         if (orderResult.status === 'rejected') {
@@ -84,6 +85,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
   const channelNames = [...new Set([...lookups.channels.map((item) => item.name), form.kenhMua].filter(Boolean))];
   const paymentNames = [...new Set([...lookups.payments.map((item) => item.name), form.phuongThucThanhToan].filter(Boolean))];
   const productNames = [...new Set([...lookups.products.map((product) => product.tenHangHoa), form.tenHangHoa].filter(Boolean))];
+  const shopNames = [...new Set([...lookups.shops, form.tenShop].filter(Boolean))];
 
   const setField = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
   const setMoney = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value.replace(/\D/g, '') }));
@@ -179,7 +181,8 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
             </div>
             <div>
               <label className={labelClass}>Tên shop</label>
-              <input name="tenShop" value={form.tenShop ?? ''} onChange={setField} className={inputClass} required />
+              <input name="tenShop" list="edit-order-shop-options" autoComplete="off" value={form.tenShop ?? ''} onChange={setField} className={inputClass} required />
+              <datalist id="edit-order-shop-options">{shopNames.map((name) => <option key={name} value={name} />)}</datalist>
             </div>
             <div className="sm:col-span-2">
               <label className={labelClass}>Kênh mua</label>

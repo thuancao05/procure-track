@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import { getGoogleOAuth2Client } from '@/lib/google-auth';
 import { parseMultipartFormData } from '@/lib/multipart';
 import { buildOrderFolderName } from '@/lib/order-folder';
+import { createAdminClient } from '@/lib/supabase';
 
 // ID của Google Drive / Sheets chỉ gồm chữ, số, '-' và '_'.
 // Chặn mọi ký tự khác (đặc biệt là dấu ') để không thể chèn thêm điều kiện vào câu truy vấn q.
@@ -18,6 +19,18 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 function asSheetText(value) {
   const text = value == null ? '' : String(value);
   return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+function normalizeOrderCode(value) {
+  return String(value ?? '').trim().toLocaleUpperCase('vi-VN');
+}
+
+async function saveShopName(name) {
+  const shopName = String(name ?? '').trim();
+  const { error } = await createAdminClient()
+    .from('shops')
+    .upsert({ name: shopName }, { onConflict: 'normalized_name', ignoreDuplicates: true });
+  if (error) throw new Error(`Không thể lưu tên shop vào cơ sở dữ liệu: ${error.message}`);
 }
 
 async function uploadFileToDrive(accessToken, imageFile, parentFolderId) {
@@ -133,9 +146,33 @@ export async function POST(request) {
     }
 
     // --- PHẦN 1: XỬ LÝ GOOGLE DRIVE (Tạo thư mục Tháng & Đơn hàng) ---
+    await saveShopName(tenShop);
+
     const dateObj = new Date(ngay);
-    const month = dateObj.getMonth() + 1; // 1 -> 12
+    const month = dateObj.getMonth() + 1;
     const year = dateObj.getFullYear();
+    const sheetTitle = `Tháng ${month}/${year}`;
+
+    // Reject duplicate order codes before creating Drive folders or uploading files.
+    const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
+    const existingSheet = spreadsheetInfo.data.sheets.find(
+      (sheet) => sheet.properties.title === sheetTitle,
+    );
+    if (existingSheet && normalizeOrderCode(maDonHang)) {
+      const existingRows = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${sheetTitle.replaceAll("'", "''")}'!C2:C`,
+        majorDimension: 'COLUMNS',
+      });
+      const duplicateRowIndex = (existingRows.data.values?.[0] ?? [])
+        .findIndex((value) => normalizeOrderCode(value) === normalizeOrderCode(maDonHang));
+      if (duplicateRowIndex >= 0) {
+        return NextResponse.json({
+          success: false,
+          error: `Ma don hang "${String(maDonHang).trim()}" da ton tai trong nhat ky (hang ${duplicateRowIndex + 2}). Khong tao don moi.`,
+        }, { status: 409 });
+      }
+    }
     const monthFolderName = `Tháng ${month}/${year}`; // Ví dụ: Tháng 1/2026
 
     // Kiểm tra / Tạo thư mục Tháng bên trong thư mục gốc trên Drive
@@ -183,10 +220,7 @@ export async function POST(request) {
     }
 
     // --- PHẦN 2: XỬ LÝ GOOGLE SHEETS (Ghi nhật ký vào Tab tương ứng với Tháng) ---
-    const sheetTitle = `Tháng ${month}/${year}`; // Tên Tab trong file Google Sheet
-
     // Kiểm tra xem Tab (Sheet) của tháng đó đã tồn tại trong file Spreadsheet chưa
-    const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId });
     const sheetExists = spreadsheetInfo.data.sheets.some(
       (s) => s.properties.title === sheetTitle
     );

@@ -10,5 +10,7 @@ function cleanFolderPart(value) {
 }
 
 export function buildOrderFolderName(ngay, maDonHang, maVanDon, tenShop) {
-  return [ngay, maDonHang, maVanDon, tenShop].map(cleanFolderPart).filter(Boolean).join('.');
+  // Giữ nguyên đủ 4 vị trí để biết trường nào đang bị bỏ trống.
+  // Ví dụ thiếu mã vận đơn: 2026-11-21.LZD2200..Shop 2
+  return [ngay, maDonHang, maVanDon, tenShop].map(cleanFolderPart).join('.');
 }

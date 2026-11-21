@@ -10,6 +10,7 @@ const ORDER_FOLDER_PATTERN = /^(\d{4}-\d{2}-\d{2})\.(.*)$/;
 
 const normalize = (value) => String(value ?? '').trim().toLowerCase();
 const orderKey = (date, orderCode, shippingCode) => [date, orderCode, shippingCode].map(normalize).join('\u001f');
+const orderOnlyKey = (date, orderCode) => [date, orderCode].map(normalize).join('\u001f');
 
 function folderInfo(folder) {
   const match = String(folder.name ?? '').match(ORDER_FOLDER_PATTERN);
@@ -131,11 +132,15 @@ export async function GET(request) {
 
     const attention = [];
     const journalKeys = new Set();
+    const journalOrderKeys = new Set();
+    const journalFolderIds = new Set();
     for (const record of journalRecords) {
       if (!record.date && !record.orderCode && !record.shippingCode && !record.shop && !record.folderLink) continue;
       const key = orderKey(record.date, record.orderCode, record.shippingCode);
       if (record.date || record.orderCode || record.shippingCode) journalKeys.add(key);
       const folderId = folderIdFromLink(record.folderLink);
+      if (record.date && record.orderCode) journalOrderKeys.add(orderOnlyKey(record.date, record.orderCode));
+      if (folderId) journalFolderIds.add(folderId);
       const hasFolder = Boolean(folderId && folderIds.has(folderId));
       if (!hasFolder) {
         attention.push({
@@ -152,7 +157,10 @@ export async function GET(request) {
     }
 
     for (const folder of orderFolders) {
-      if (!journalKeys.has(orderKey(folder.date, folder.orderCode, folder.shippingCode))) {
+      const hasJournal = journalFolderIds.has(folder.id)
+        || journalKeys.has(orderKey(folder.date, folder.orderCode, folder.shippingCode))
+        || (folder.orderCode && journalOrderKeys.has(orderOnlyKey(folder.date, folder.orderCode)));
+      if (!hasJournal) {
         attention.push({
           type: 'missing-journal',
           date: folder.date,

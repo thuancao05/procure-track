@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../services/api';
+import { apiError } from '../ui';
 
 const iconProps = {
   className: 'w-5 h-5',
@@ -47,7 +48,7 @@ export default function Login({ onLogin }) {
       const res = await api.post('/auth/login', { username, password });
       onLogin(res.data.user);
     } catch (err) {
-      setError(err.response?.data?.error ?? 'Không thể kết nối tới server.');
+      setError(apiError(err, 'Không thể đăng nhập.'));
       setLoading(false);
     }
   };
