@@ -837,8 +837,8 @@ export default function HomeDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className={labelClass}>Ngày nhập</label>
-              <div className="flex flex-nowrap items-center gap-2">
-                <div className="relative w-[170px] shrink-0 sm:w-[180px]">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-full shrink-0 sm:w-[180px]">
                   <input
                     type="text"
                     value={formatDateDisplay(formData.ngay)}
@@ -865,7 +865,7 @@ export default function HomeDashboard() {
                     type="button"
                     onClick={() => setFormData((current) => ({ ...current, ngay: shiftDate(current.ngay, offset) }))}
                     aria-label={`Chọn ngày ${formatDateDisplay(shiftDate(formData.ngay, offset))}`}
-                    className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm font-medium text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 sm:flex-none sm:px-3"
                   >
                     {formatShortDateDisplay(shiftDate(formData.ngay, offset))}
                   </button>
