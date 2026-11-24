@@ -798,6 +798,8 @@ export default function HomeDashboard() {
             </div>
           </div>
 
+          <OrderOcrPanel onFill={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} />
+
           {/* Grid thông tin form */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
@@ -1052,7 +1054,6 @@ export default function HomeDashboard() {
               💡 Bạn có thể giữ phím Ctrl (hoặc Shift trên máy tính) hoặc chọn nhiều tệp trên điện thoại để tải lên một lúc tất cả các bill liên quan.
             </span>
           </div>
-            <OrderOcrPanel />
           </div>
 
           {/* Nút lưu: dính đáy màn hình trên mobile */}
