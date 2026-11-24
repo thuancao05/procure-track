@@ -3,6 +3,7 @@ import api from '../services/api';
 import Modal from './Modal';
 import { useNotification } from './NotificationProvider';
 import { inputClass, labelClass, selectClass } from '../ui';
+import { compressImagesForUpload } from '../utils/imageCompression';
 
 const formatMoney = (value) => {
   const digits = String(value ?? '').replace(/\D/g, '');
@@ -15,6 +16,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
   const [dateText, setDateText] = useState('');
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
+  const [compressingImages, setCompressingImages] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [cameraMessage, setCameraMessage] = useState('');
@@ -99,9 +101,20 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
     const product = lookups.products.find((item) => item.tenHangHoa === tenHangHoa);
     setForm((current) => ({ ...current, sku: product?.sku ?? current.sku, tenHangHoa }));
   };
-  const addFiles = (event) => {
-    const files = Array.from(event.target.files ?? []).filter((file) => file.type.startsWith('image/'));
-    if (files.length) setNewImages((current) => [...current, ...files]);
+  const addFiles = async (event) => {
+    const files = Array.from(event.target.files ?? []).filter((file) => file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name));
+    if (files.length) {
+      setCompressingImages(true);
+      try {
+        const compressedImages = await compressImagesForUpload(files);
+        setNewImages((current) => [...current, ...compressedImages]);
+      } catch (error) {
+        console.error('Không thể chuyển đổi ảnh HEIC:', error);
+        setError('Không thể đọc ảnh HEIC. Vui lòng thử lại hoặc chuyển ảnh sang JPG/PNG.');
+      } finally {
+        setCompressingImages(false);
+      }
+    }
     event.target.value = '';
   };
   const captureCameraImage = () => {
@@ -246,11 +259,12 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
               <div className="flex gap-2">
                 <label className="cursor-pointer rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
                   + Chọn ảnh
-                  <input type="file" accept="image/*" multiple onChange={addFiles} className="sr-only" />
+                  <input type="file" accept="image/*,.heic,.heif" multiple onChange={addFiles} className="sr-only" />
                 </label>
                 <button type="button" onClick={() => { setCameraError(''); setCameraMessage(''); setCameraOpen(true); }} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">📷 Mở camera</button>
               </div>
             </div>
+            {compressingImages && <p className="mt-2 text-xs font-medium text-blue-700">⏳ Đang tối ưu kích thước ảnh...</p>}
             {(existingImages.length + newImages.length > 0) && <p className="mt-2 text-xs font-medium text-blue-700">Đang có {existingImages.length + newImages.length} ảnh chứng từ.</p>}
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
               {existingImages.map((image) => (
@@ -266,7 +280,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
           <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
             <button type="button" onClick={handleDelete} disabled={saving || deleting} className="mr-auto rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50">{deleting ? 'Đang xóa...' : 'Xóa đơn hàng'}</button>
             <button type="button" onClick={onClose} disabled={saving || deleting} className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">Hủy</button>
-            <button type="submit" disabled={saving || deleting} className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{saving ? 'Đang cập nhật...' : 'Lưu chỉnh sửa'}</button>
+            <button type="submit" disabled={saving || deleting || compressingImages} className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{saving ? 'Đang cập nhật...' : 'Lưu chỉnh sửa'}</button>
           </div>
         </form>
       )}

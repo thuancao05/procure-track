@@ -923,3 +923,58 @@ Sau khi push hoặc merge PR, kiểm tra GitHub → **Actions** → **Deploy pro
 - Tạo GitHub Actions tự động deploy backend rồi frontend sau mỗi lần merge/push vào `main`.
 - Bổ sung chạy workflow thủ công bằng `workflow_dispatch`.
 - Tách secret CI/CD vào GitHub Environment `production`.
+
+## 18. Cập nhật xử lý ảnh và quét mã
+
+### 18.1. Tối ưu ảnh trước khi upload
+
+Frontend xử lý ảnh trước khi đưa vào `FormData` để giảm dung lượng truyền tải và giảm tải cho trình duyệt:
+
+- Resize chiều lớn nhất của ảnh về tối đa `2200px`.
+- Nén ảnh JPEG với chất lượng `0.82`.
+- Ảnh JPEG nhỏ hơn hoặc bằng khoảng `1.5MB` được giữ nguyên nếu không cần tối ưu thêm.
+- Nếu ảnh sau khi nén không nhỏ hơn ảnh gốc thì giữ lại ảnh gốc.
+- Tối đa `3` ảnh được resize/nén đồng thời để tránh làm nghẽn CPU và bộ nhớ khi người dùng chọn nhiều ảnh.
+- Nút lưu bị khóa trong thời gian frontend đang tối ưu ảnh.
+
+Mã dùng chung nằm tại:
+
+```text
+apps/src/utils/imageCompression.js
+```
+
+Được sử dụng trong `HomeDashboard` và `EditOrderModal`.
+
+### 18.2. Hỗ trợ ảnh HEIC/HEIF
+
+Do nhiều trình duyệt không giải mã trực tiếp được HEIC/HEIF bằng `Image` hoặc `canvas`, frontend chuyển HEIC/HEIF sang JPEG trước khi resize/nén và upload.
+
+- Hỗ trợ chọn file `.heic` và `.heif`.
+- File sau chuyển đổi có phần mở rộng `.jpg` và MIME type `image/jpeg`.
+- Thư viện `heic2any` được lazy-load, chỉ tải khi người dùng chọn ảnh HEIC/HEIF.
+- Nếu chuyển đổi thất bại, giao diện hiển thị thông báo yêu cầu chọn lại hoặc chuyển ảnh sang JPG/PNG.
+
+Backend tiếp tục nhận JPEG như luồng upload hiện có; không cần thay đổi API Google Drive.
+
+### 18.3. Quét mã vạch và mã QR
+
+Hai nút quét tại trường `Mã đơn hàng` và `Mã vận đơn` mở cùng một modal quét mã. Modal có hai chế độ:
+
+- **Mã vạch**: được chọn mặc định khi mở modal. Hỗ trợ các định dạng phổ biến gồm Code 128, Code 39, Code 93, Codabar, EAN-13, EAN-8, ITF, UPC-A và UPC-E.
+- **QR**: chỉ quét mã QR.
+
+Khung quét thay đổi theo chế độ:
+
+- Mã vạch dùng khung ngang rộng.
+- QR dùng khung vuông.
+
+Sau khi nhận diện thành công, giá trị được tự động điền vào trường đang chọn và modal tự đóng. Thư viện sử dụng là `html5-qrcode` với cấu hình `formatsToSupport` tương ứng với chế độ quét.
+
+### 18.4. Kiểm tra build
+
+Sau các thay đổi trên, build frontend được kiểm tra bằng:
+
+```bash
+cd apps
+npm run build
+```

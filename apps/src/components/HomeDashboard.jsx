@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import api from '../services/api';
 import { apiError, inputClass, labelClass, selectClass } from '../ui';
 import { useNotification } from './NotificationProvider';
+import { compressImagesForUpload } from '../utils/imageCompression';
 
 const todayDateString = () => {
   const today = new Date();
@@ -101,12 +102,14 @@ export default function HomeDashboard() {
   const [lookupError, setLookupError] = useState('');
 
   const [images, setImages] = useState([]);
+  const [compressingImages, setCompressingImages] = useState(false);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [cameraMessage, setCameraMessage] = useState('');
   // Ô đang được quét QR: 'maVanDon' | 'maDonHang' | null (đóng)
   const [qrTarget, setQrTarget] = useState(null);
+  const [qrMode, setQrMode] = useState('barcode');
   const qrOpen = qrTarget !== null;
   const [qrError, setQrError] = useState('');
   const nativeQrScannerEnabled = false;
@@ -251,6 +254,7 @@ export default function HomeDashboard() {
 
   const openQrScanner = (field) => {
     setQrError('');
+    setQrMode('barcode');
     setQrTarget(field);
   };
 
@@ -317,9 +321,27 @@ export default function HomeDashboard() {
     const startScanner = async () => {
       try {
         setQrError('');
+        const formatsToSupport = qrMode === 'barcode'
+          ? [
+              Html5QrcodeSupportedFormats.CODE_128,
+              Html5QrcodeSupportedFormats.CODE_39,
+              Html5QrcodeSupportedFormats.CODE_93,
+              Html5QrcodeSupportedFormats.CODABAR,
+              Html5QrcodeSupportedFormats.EAN_13,
+              Html5QrcodeSupportedFormats.EAN_8,
+              Html5QrcodeSupportedFormats.ITF,
+              Html5QrcodeSupportedFormats.UPC_A,
+              Html5QrcodeSupportedFormats.UPC_E,
+            ]
+          : [Html5QrcodeSupportedFormats.QR_CODE];
+
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 180 } },
+          {
+            fps: 10,
+            qrbox: qrMode === 'barcode' ? { width: 320, height: 140 } : { width: 250, height: 250 },
+            formatsToSupport,
+          },
           (decodedText) => {
             if (stopped) return;
             setFormData((current) => ({ ...current, [qrTarget]: decodedText.trim() }));
@@ -346,7 +368,7 @@ export default function HomeDashboard() {
           }
         });
     };
-  }, [qrTarget]);
+  }, [qrTarget, qrMode]);
 
   // 0. Tải danh mục Hàng hóa / Kênh mua / Phương thức thanh toán từ backend
   useEffect(() => {
@@ -542,6 +564,20 @@ export default function HomeDashboard() {
   const clearImages = () => {
     setImages([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const addImages = async (files) => {
+    if (!files.length) return;
+    setCompressingImages(true);
+    try {
+      const compressedImages = await compressImagesForUpload(files);
+      setImages((current) => [...current, ...compressedImages]);
+    } catch (error) {
+      console.error('Không thể chuyển đổi ảnh HEIC:', error);
+      await showAlert('Không thể đọc ảnh HEIC. Vui lòng thử lại hoặc chuyển ảnh sang JPG/PNG.', { variant: 'error' });
+    } finally {
+      setCompressingImages(false);
+    }
   };
 
   // Chọn SKU hoặc Tên hàng hóa -> tự động điền trường còn lại
@@ -875,7 +911,7 @@ export default function HomeDashboard() {
               <div className="flex gap-2">
                 <input type="text" name="maDonHang" autoCapitalize="characters" value={formData.maDonHang} placeholder="VD: DH123456 (không bắt buộc)" onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} />
                 <button type="button" onClick={() => openQrScanner('maDonHang')} className="shrink-0 px-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100" title="Quét mã đơn hàng">
-                  📷 Quét QR
+                  📷 Quét mã
                 </button>
               </div>
             </div>
@@ -976,7 +1012,7 @@ export default function HomeDashboard() {
               <div className="flex gap-2">
                 <input type="text" name="maVanDon" autoCapitalize="characters" value={formData.maVanDon} placeholder="VD: SPXVN... (không bắt buộc)" onChange={handleChange} className={`${inputClass} flex-1 min-w-0`} />
                 <button type="button" onClick={() => openQrScanner('maVanDon')} className="shrink-0 px-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100" title="Quét mã QR">
-                  📷 Quét QR
+                  📷 Quét mã
                 </button>
               </div>
             </div>
@@ -990,8 +1026,8 @@ export default function HomeDashboard() {
                 ref={fileInputRef}
                 type="file" 
                 multiple 
-                accept="image/*" 
-                onChange={(e) => setImages((current) => [...current, ...Array.from(e.target.files ?? [])])} 
+                accept="image/*,.heic,.heif"
+                onChange={(e) => { addImages(Array.from(e.target.files ?? [])); e.target.value = ''; }}
                 className="w-full sm:flex-1 min-w-0 px-3 py-3 sm:py-2 border border-dashed border-slate-300 rounded-lg text-sm bg-slate-50 file:mr-3 file:py-2 sm:file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm sm:file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               <button
@@ -1003,6 +1039,7 @@ export default function HomeDashboard() {
               </button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
+              {compressingImages && <p className="mt-2 text-xs font-medium text-blue-700">⏳ Đang tối ưu kích thước ảnh...</p>}
               {images.length > 0 && (
                 <button
                   type="button"
@@ -1055,18 +1092,34 @@ export default function HomeDashboard() {
 
           {/* Nút lưu: dính đáy màn hình trên mobile */}
           {qrOpen && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Quét mã QR">
+            <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Quét mã">
               <div className="w-full max-w-lg bg-white rounded-2xl p-4 shadow-xl">
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold text-slate-800">{qrTarget === 'maDonHang' ? 'Quét mã đơn hàng' : 'Quét mã QR vận đơn'}</h2>
-                  <button type="button" onClick={() => setQrTarget(null)} className="text-slate-500 hover:text-slate-800 text-xl" aria-label="Đóng quét QR">×</button>
+                  <h2 className="font-semibold text-slate-800">{qrMode === 'barcode' ? 'Quét mã vạch' : 'Quét mã QR'} {qrTarget === 'maDonHang' ? 'đơn hàng' : 'vận đơn'}</h2>
+                  <button type="button" onClick={() => setQrTarget(null)} className="text-slate-500 hover:text-slate-800 text-xl" aria-label="Đóng quét mã">×</button>
+                </div>
+                <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1" role="group" aria-label="Loại mã cần quét">
+                  <button
+                    type="button"
+                    onClick={() => { setQrError(''); setQrMode('barcode'); }}
+                    className={`rounded-md px-3 py-2 text-sm font-medium ${qrMode === 'barcode' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                  >
+                    Mã vạch
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setQrError(''); setQrMode('qr'); }}
+                    className={`rounded-md px-3 py-2 text-sm font-medium ${qrMode === 'qr' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                  >
+                    QR
+                  </button>
                 </div>
                 {qrError ? (
                   <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{qrError}</p>
                 ) : (
                   <div id="qr-reader" className="w-full min-h-64 overflow-hidden rounded-xl bg-slate-900" />
                 )}
-                <p className="text-xs text-slate-500 mt-3">Đưa mã QR vào giữa khung hình; mã sẽ được điền tự động.</p>
+                <p className="text-xs text-slate-500 mt-3">Đưa {qrMode === 'barcode' ? 'mã vạch' : 'mã QR'} vào giữa khung hình; mã sẽ được điền tự động.</p>
                 <button type="button" onClick={() => setQrTarget(null)} className="w-full mt-4 py-3 rounded-xl border border-slate-300 text-slate-700">Đóng</button>
               </div>
             </div>
@@ -1099,7 +1152,7 @@ export default function HomeDashboard() {
           <div className="sticky bottom-0 z-10 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 backdrop-blur border-t border-slate-200 sm:static sm:mx-0 sm:p-0 sm:bg-transparent sm:border-0 sm:backdrop-blur-none">
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || compressingImages}
               className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium text-base py-3.5 sm:py-3 px-4 rounded-xl shadow-sm transition duration-150 disabled:bg-blue-200"
             >
               {submitting ? "⏳ Đang xử lý tạo thư mục, ghi Sheet & tải ảnh..." : "💾 Lưu Đơn Hàng & Ghi Nhật Ký"}
