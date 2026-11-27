@@ -230,7 +230,12 @@ export default function HomeDashboard() {
       try {
         setCameraError('');
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1080 },
+            height: { ideal: 1920 },
+            aspectRatio: { ideal: 9 / 16 },
+          },
           audio: false,
         });
         if (cancelled) {
@@ -287,10 +292,10 @@ export default function HomeDashboard() {
           if (cancelled || !qrVideoRef.current) return;
           try {
             const codes = await detector.detect(qrVideoRef.current);
-            const value = codes[0]?.rawValue?.trim();
+            const rawValue = codes[0]?.rawValue;
+            const value = qrTarget === 'maDonHang' ? rawValue : rawValue?.trim();
             if (value) {
-              const normalizedValue = qrTarget === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
-              setFormData((current) => ({ ...current, [qrTarget]: normalizedValue }));
+              setFormData((current) => ({ ...current, [qrTarget]: value }));
               setQrTarget(null);
               return;
             }
@@ -345,9 +350,8 @@ export default function HomeDashboard() {
           },
           (decodedText) => {
             if (stopped) return;
-            const value = decodedText.trim();
-            const normalizedValue = qrTarget === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
-            setFormData((current) => ({ ...current, [qrTarget]: normalizedValue }));
+            const value = qrTarget === 'maDonHang' ? decodedText : decodedText.trim();
+            setFormData((current) => ({ ...current, [qrTarget]: value }));
             stopped = true;
             setQrTarget(null);
           },
@@ -541,8 +545,7 @@ export default function HomeDashboard() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const nextValue = name === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
-    setFormData((current) => ({ ...current, [name]: nextValue }));
+    setFormData((current) => ({ ...current, [name]: value }));
   };
 
   const handleMoneyChange = (e) => {
@@ -550,19 +553,29 @@ export default function HomeDashboard() {
     setFormData((current) => ({ ...current, [e.target.name]: digits }));
   };
 
-  const captureCameraImage = () => {
+  const captureCameraImage = async () => {
     const video = videoRef.current;
     if (!video?.videoWidth) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
-      setCameraMessage(`Đã chụp thành công ảnh số ${images.length + 1}.`);
-      setImages((current) => [...current, new File([blob], filename, { type: 'image/jpeg' })]);
-    }, 'image/jpeg', 0.9);
+    let blob;
+    const track = cameraStreamRef.current?.getVideoTracks()[0];
+    if (track && 'ImageCapture' in window) {
+      try {
+        blob = await new window.ImageCapture(track).takePhoto();
+      } catch {
+        // Fall back to the highest-resolution frame provided by the video stream.
+      }
+    }
+    if (!blob) {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+    }
+    if (!blob) return;
+    const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+    setCameraMessage(`Đã chụp thành công ảnh số ${images.length + 1}.`);
+    setImages((current) => [...current, new File([blob], filename, { type: blob.type || 'image/jpeg' })]);
   };
 
   const clearImages = () => {
@@ -1139,7 +1152,7 @@ export default function HomeDashboard() {
                 {cameraError ? (
                   <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{cameraError}</p>
                 ) : (
-                  <video ref={videoRef} autoPlay playsInline className="w-full aspect-video object-cover rounded-xl bg-slate-900" />
+                  <video ref={videoRef} autoPlay playsInline className="mx-auto h-[60vh] w-auto max-w-full aspect-[9/16] object-cover rounded-xl bg-slate-900" />
                 )}
                 {cameraMessage && (
                   <p className="mt-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">✅ {cameraMessage}</p>

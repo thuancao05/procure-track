@@ -35,7 +35,15 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
     const startCamera = async () => {
       try {
         setCameraError('');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1080 },
+            height: { ideal: 1920 },
+            aspectRatio: { ideal: 9 / 16 },
+          },
+          audio: false,
+        });
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
           return;
@@ -91,8 +99,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
 
   const setField = (event) => {
     const { name, value } = event.target;
-    const nextValue = name === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
-    setForm((current) => ({ ...current, [name]: nextValue }));
+    setForm((current) => ({ ...current, [name]: value }));
   };
   const setMoney = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value.replace(/\D/g, '') }));
   const handleSkuChange = (event) => {
@@ -121,19 +128,29 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
     }
     event.target.value = '';
   };
-  const captureCameraImage = () => {
+  const captureCameraImage = async () => {
     const video = videoRef.current;
     if (!video?.videoWidth) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
-      setCameraMessage(`Đã chụp thành công ảnh số ${existingImages.length + newImages.length + 1}.`);
-      setNewImages((current) => [...current, new File([blob], filename, { type: 'image/jpeg' })]);
-    }, 'image/jpeg', 0.9);
+    let blob;
+    const track = cameraStreamRef.current?.getVideoTracks()[0];
+    if (track && 'ImageCapture' in window) {
+      try {
+        blob = await new window.ImageCapture(track).takePhoto();
+      } catch {
+        // Fall back to the highest-resolution frame provided by the video stream.
+      }
+    }
+    if (!blob) {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+    }
+    if (!blob) return;
+    const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+    setCameraMessage(`Đã chụp thành công ảnh số ${existingImages.length + newImages.length + 1}.`);
+    setNewImages((current) => [...current, new File([blob], filename, { type: blob.type || 'image/jpeg' })]);
   };
 
   const handleSubmit = async (event) => {
@@ -214,7 +231,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
             </div>
             <div>
               <label className={labelClass}>Mã đơn hàng <span className="font-normal normal-case">(không bắt buộc)</span></label>
-              <input name="maDonHang" value={(form.maDonHang ?? '').replace(/\s+/gu, '')} onChange={setField} className={inputClass} />
+              <input name="maDonHang" value={form.maDonHang ?? ''} onChange={setField} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Mã vận đơn <span className="font-normal normal-case">(không bắt buộc)</span></label>
@@ -295,7 +312,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
               <h3 className="font-semibold text-slate-800">Chụp ảnh chứng từ</h3>
               <button type="button" onClick={() => setCameraOpen(false)} className="text-xl text-slate-500 hover:text-slate-800" aria-label="Đóng camera">×</button>
             </div>
-            {cameraError ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{cameraError}</p> : <video ref={videoRef} autoPlay playsInline className="aspect-video w-full rounded-xl bg-slate-900 object-cover" />}
+            {cameraError ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{cameraError}</p> : <video ref={videoRef} autoPlay playsInline className="mx-auto h-[60vh] w-auto max-w-full aspect-[9/16] rounded-xl bg-slate-900 object-cover" />}
             {cameraMessage && <p className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">✅ {cameraMessage}</p>}
             <div className="mt-4 flex gap-2">
               <button type="button" onClick={captureCameraImage} disabled={Boolean(cameraError)} className="flex-1 rounded-lg bg-blue-600 py-3 font-medium text-white disabled:bg-slate-300">Chụp ảnh</button>
