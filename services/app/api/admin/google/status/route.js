@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { requireAdmin } from '@/lib/auth';
-import { getGoogleOAuth2Client, getStoredGoogleConnection } from '@/lib/google-auth';
+import {
+  getGoogleOAuth2Client,
+  getStoredGoogleConnection,
+  isGoogleReauthError,
+  GOOGLE_REAUTH_MESSAGE,
+} from '@/lib/google-auth';
 
 function maskEmail(email) {
   if (typeof email !== 'string') return email;
@@ -37,14 +42,14 @@ export async function GET() {
         } : null;
         driveAccess = true;
       } catch (error) {
-        connectionError = error.message;
+        connectionError = isGoogleReauthError(error) ? GOOGLE_REAUTH_MESSAGE : error.message;
       }
       if (process.env.GOOGLE_SPREADSHEET_ID) {
         try {
           await sheets.spreadsheets.get({ spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID });
           sheetsAccess = true;
         } catch (error) {
-          connectionError = connectionError ?? error.message;
+          connectionError = connectionError ?? (isGoogleReauthError(error) ? GOOGLE_REAUTH_MESSAGE : error.message);
         }
       }
     }
@@ -58,6 +63,7 @@ export async function GET() {
       driveAccess,
       sheetsAccess,
       connectionError,
+      needsReconnect: Boolean(connectionError),
       defaultFolderId: process.env.GOOGLE_PARENT_FOLDER_ID ?? '',
       defaultSpreadsheetId: process.env.GOOGLE_SPREADSHEET_ID ?? '',
     });

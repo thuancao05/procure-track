@@ -9,6 +9,16 @@ export const GOOGLE_SCOPES = [
 
 const TOKEN_VERSION = 'v1';
 
+export const GOOGLE_REAUTH_MESSAGE = 'Google không chấp nhận refresh token đã lưu. Admin cần kết nối lại Google.';
+
+export function isGoogleReauthError(error) {
+  const googleError = error?.response?.data?.error;
+  const message = String(error?.message ?? '');
+  return googleError === 'invalid_grant'
+    || message.includes('invalid_grant')
+    || message.toLowerCase().includes('token has been expired or revoked');
+}
+
 function googleOAuthConfig() {
   return {
     clientId: process.env.GOOGLE_CLIENT_ID,

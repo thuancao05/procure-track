@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import api from '../services/api';
 
 // Menu theo nhóm. `defaultOpen`: nhóm mở sẵn khi chưa có lựa chọn của người dùng.
 const NAV_GROUPS = [
@@ -55,6 +56,32 @@ export default function Layout({ user, onLogout }) {
   const { pathname } = useLocation();
   const [navState, setNavState] = useState(readNavState);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [googleStatus, setGoogleStatus] = useState(null);
+  const [googleStatusLoading, setGoogleStatusLoading] = useState(user.role === 'admin');
+
+  useEffect(() => {
+    if (user.role !== 'admin') return undefined;
+
+    let active = true;
+    const loadGoogleStatus = async () => {
+      if (active) setGoogleStatusLoading(true);
+      try {
+        const { data } = await api.get('/admin/google/status');
+        if (active) setGoogleStatus(data);
+      } catch {
+        // Không chặn thanh điều hướng nếu API trạng thái Google tạm thời lỗi.
+      } finally {
+        if (active) setGoogleStatusLoading(false);
+      }
+    };
+
+    loadGoogleStatus();
+    const intervalId = window.setInterval(loadGoogleStatus, 60_000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [user.role]);
 
   const collapsed = Boolean(navState.collapsed); // desktop: thu gọn còn cột icon
   const groups = NAV_GROUPS.filter((g) => !g.admin || user.role === 'admin');
@@ -175,6 +202,28 @@ export default function Layout({ user, onLogout }) {
               </p>
             </div>
           </div>
+
+          {user.role === 'admin' && (
+            <NavLink
+              to="/admin/google"
+              title={googleStatus?.connectionError || 'Kiểm tra kết nối Google'}
+              aria-label={googleStatusLoading ? 'Đang kiểm tra kết nối Google' : googleStatus?.connectionError ? 'Google cần kết nối lại' : 'Trạng thái kết nối Google'}
+              className={`shrink-0 inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium px-2.5 py-2 rounded-lg border transition ${
+                googleStatusLoading
+                  ? 'text-slate-600 bg-slate-50 border-slate-200'
+                  : googleStatus?.connectionError
+                  ? 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
+                  : googleStatus?.connected
+                    ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                    : 'text-slate-600 bg-slate-50 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <span aria-hidden="true">{googleStatusLoading ? '◌' : googleStatus?.connectionError ? '⚠' : '🔗'}</span>
+              <span className="hidden sm:inline">
+                {googleStatusLoading ? 'Đang kết nối' : googleStatus?.connectionError ? 'Google cần kết nối lại' : googleStatus?.connected ? 'Google đã kết nối' : 'Google chưa kết nối'}
+              </span>
+            </NavLink>
+          )}
 
           <button
             type="button"
