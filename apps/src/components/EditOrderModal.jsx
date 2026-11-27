@@ -89,7 +89,11 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
   const productNames = [...new Set([...lookups.products.map((product) => product.tenHangHoa), form.tenHangHoa].filter(Boolean))];
   const shopNames = [...new Set([...lookups.shops, form.tenShop].filter(Boolean))];
 
-  const setField = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+  const setField = (event) => {
+    const { name, value } = event.target;
+    const nextValue = name === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
+    setForm((current) => ({ ...current, [name]: nextValue }));
+  };
   const setMoney = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value.replace(/\D/g, '') }));
   const handleSkuChange = (event) => {
     const sku = event.target.value;
@@ -210,7 +214,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
             </div>
             <div>
               <label className={labelClass}>Mã đơn hàng <span className="font-normal normal-case">(không bắt buộc)</span></label>
-              <input name="maDonHang" value={form.maDonHang ?? ''} onChange={setField} className={inputClass} />
+              <input name="maDonHang" value={(form.maDonHang ?? '').replace(/\s+/gu, '')} onChange={setField} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>Mã vận đơn <span className="font-normal normal-case">(không bắt buộc)</span></label>

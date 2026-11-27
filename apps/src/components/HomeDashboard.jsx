@@ -289,7 +289,8 @@ export default function HomeDashboard() {
             const codes = await detector.detect(qrVideoRef.current);
             const value = codes[0]?.rawValue?.trim();
             if (value) {
-              setFormData((current) => ({ ...current, [qrTarget]: value }));
+              const normalizedValue = qrTarget === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
+              setFormData((current) => ({ ...current, [qrTarget]: normalizedValue }));
               setQrTarget(null);
               return;
             }
@@ -344,7 +345,9 @@ export default function HomeDashboard() {
           },
           (decodedText) => {
             if (stopped) return;
-            setFormData((current) => ({ ...current, [qrTarget]: decodedText.trim() }));
+            const value = decodedText.trim();
+            const normalizedValue = qrTarget === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
+            setFormData((current) => ({ ...current, [qrTarget]: normalizedValue }));
             stopped = true;
             setQrTarget(null);
           },
@@ -538,7 +541,8 @@ export default function HomeDashboard() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((current) => ({ ...current, [name]: value }));
+    const nextValue = name === 'maDonHang' ? value.replace(/\s+/gu, '') : value;
+    setFormData((current) => ({ ...current, [name]: nextValue }));
   };
 
   const handleMoneyChange = (e) => {

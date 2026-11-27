@@ -85,7 +85,7 @@ export async function POST(request) {
     // Lấy thông tin từ form
     const ngay = formData.get('ngay');
     const kenhMua = formData.get('kenhMua');
-    const maDonHang = formData.get('maDonHang');
+    const maDonHang = String(formData.get('maDonHang') ?? '').replace(/\s+/gu, '');
     const tenShop = formData.get('tenShop');
     const sku = formData.get('sku');
     const tenHangHoa = formData.get('tenHangHoa');

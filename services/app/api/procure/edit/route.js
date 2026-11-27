@@ -215,7 +215,7 @@ export async function PATCH(request) {
     const ngay = String(formData.get('ngay') ?? '');
     const fields = {
       kenhMua: String(formData.get('kenhMua') ?? '').trim(),
-      maDonHang: String(formData.get('maDonHang') ?? '').trim(),
+      maDonHang: String(formData.get('maDonHang') ?? '').replace(/\s+/gu, ''),
       tenShop: String(formData.get('tenShop') ?? '').trim(),
       sku: String(formData.get('sku') ?? '').trim(),
       tenHangHoa: String(formData.get('tenHangHoa') ?? '').trim(),
