@@ -149,8 +149,15 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
     }
     if (!blob) return;
     const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
-    setCameraMessage(`Đã chụp thành công ảnh số ${existingImages.length + newImages.length + 1}.`);
-    setNewImages((current) => [...current, new File([blob], filename, { type: blob.type || 'image/jpeg' })]);
+    const capturedImage = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+    setCompressingImages(true);
+    try {
+      const [optimizedImage] = await compressImagesForUpload([capturedImage]);
+      setCameraMessage(`Đã chụp và tối ưu ảnh số ${existingImages.length + newImages.length + 1}.`);
+      setNewImages((current) => [...current, optimizedImage]);
+    } finally {
+      setCompressingImages(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -315,7 +322,7 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
             {cameraError ? <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{cameraError}</p> : <video ref={videoRef} autoPlay playsInline className="mx-auto h-[60vh] w-auto max-w-full aspect-[9/16] rounded-xl bg-slate-900 object-cover" />}
             {cameraMessage && <p className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">✅ {cameraMessage}</p>}
             <div className="mt-4 flex gap-2">
-              <button type="button" onClick={captureCameraImage} disabled={Boolean(cameraError)} className="flex-1 rounded-lg bg-blue-600 py-3 font-medium text-white disabled:bg-slate-300">Chụp ảnh</button>
+              <button type="button" onClick={captureCameraImage} disabled={Boolean(cameraError) || compressingImages} className="flex-1 rounded-lg bg-blue-600 py-3 font-medium text-white disabled:bg-slate-300">{compressingImages ? 'Đang tối ưu ảnh...' : 'Chụp ảnh'}</button>
               <button type="button" onClick={() => setCameraOpen(false)} className="rounded-lg border border-slate-300 px-4 py-3 text-slate-700">Xong</button>
             </div>
             <p className="mt-2 text-xs text-slate-500">Có thể chụp nhiều ảnh; ảnh sẽ được tải lên khi lưu đơn hàng.</p>

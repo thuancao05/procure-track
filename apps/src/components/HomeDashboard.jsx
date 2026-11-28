@@ -574,8 +574,15 @@ export default function HomeDashboard() {
     }
     if (!blob) return;
     const filename = `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
-    setCameraMessage(`Đã chụp thành công ảnh số ${images.length + 1}.`);
-    setImages((current) => [...current, new File([blob], filename, { type: blob.type || 'image/jpeg' })]);
+    const capturedImage = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+    setCompressingImages(true);
+    try {
+      const [optimizedImage] = await compressImagesForUpload([capturedImage]);
+      setCameraMessage(`Đã chụp và tối ưu ảnh số ${images.length + 1}.`);
+      setImages((current) => [...current, optimizedImage]);
+    } finally {
+      setCompressingImages(false);
+    }
   };
 
   const clearImages = () => {
@@ -1158,7 +1165,7 @@ export default function HomeDashboard() {
                   <p className="mt-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">✅ {cameraMessage}</p>
                 )}
                 <div className="flex gap-2 mt-4">
-                  <button type="button" onClick={captureCameraImage} disabled={Boolean(cameraError)} className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-medium disabled:bg-slate-300">Chụp ảnh</button>
+                  <button type="button" onClick={captureCameraImage} disabled={Boolean(cameraError) || compressingImages} className="flex-1 py-3 rounded-xl bg-blue-500 text-white font-medium disabled:bg-slate-300">{compressingImages ? 'Đang tối ưu ảnh...' : 'Chụp ảnh'}</button>
                   <button type="button" onClick={() => setCameraOpen(false)} className="px-4 py-3 rounded-xl border border-slate-300 text-slate-700">Xong</button>
                 </div>
                 <p className="text-xs text-slate-500 mt-2">Bạn có thể bấm “Chụp ảnh” nhiều lần rồi chọn “Xong”.</p>
