@@ -1,5 +1,7 @@
 const MAX_IMAGE_DIMENSION = 2200;
+const MAX_IMAGE_SIZE_BYTES = 200 * 1024;
 const JPEG_QUALITY = 0.82;
+const JPEG_QUALITIES = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.22];
 const IMAGE_PROCESSING_CONCURRENCY = 3;
 
 const isHeicFile = (file) => {
@@ -26,46 +28,50 @@ async function convertHeicToJpeg(file) {
 }
 
 /**
- * Resize and compress an image before upload while keeping OCR-readable detail.
- * Small images are returned unchanged when compression would not reduce size.
+ * Resize and compress an image before upload to a maximum of 200 KB.
  */
 export async function compressImageForUpload(file) {
   if (!file?.type?.startsWith('image/') && !isHeicFile(file)) return file;
   const normalizedFile = await convertHeicToJpeg(file);
+  if (normalizedFile.size <= MAX_IMAGE_SIZE_BYTES) return normalizedFile;
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(normalizedFile);
     const image = new Image();
 
-    image.onload = () => {
+    image.onload = async () => {
       try {
         const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
-        const width = Math.max(1, Math.round(image.width * scale));
-        const height = Math.max(1, Math.round(image.height * scale));
-
-        // Avoid converting already-small images when there is no meaningful resize.
-        if (scale === 1 && normalizedFile.type === 'image/jpeg' && normalizedFile.size <= 1.5 * 1024 * 1024) {
-          resolve(normalizedFile);
-          return;
-        }
-
+        let width = Math.max(1, Math.round(image.width * scale));
+        let height = Math.max(1, Math.round(image.height * scale));
         const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext('2d').drawImage(image, 0, 0, width, height);
 
-        canvas.toBlob((blob) => {
-          if (!blob || blob.size >= normalizedFile.size) {
-            resolve(normalizedFile);
+        while (width > 0 && height > 0) {
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Không thể tạo canvas để nén ảnh.');
+          context.drawImage(image, 0, 0, width, height);
+
+          for (const quality of JPEG_QUALITIES) {
+            const blob = await new Promise((resolveBlob) => canvas.toBlob(resolveBlob, 'image/jpeg', quality));
+            if (!blob || blob.size > MAX_IMAGE_SIZE_BYTES) continue;
+
+            const baseName = normalizedFile.name.replace(/\.[^.]+$/, '') || 'image';
+            resolve(new File([blob], `${baseName}.jpg`, {
+              type: 'image/jpeg',
+              lastModified: normalizedFile.lastModified,
+            }));
             return;
           }
 
-          const baseName = normalizedFile.name.replace(/\.[^.]+$/, '') || 'image';
-          resolve(new File([blob], `${baseName}.jpg`, {
-            type: 'image/jpeg',
-            lastModified: normalizedFile.lastModified,
-          }));
-        }, 'image/jpeg', JPEG_QUALITY);
+          width = Math.max(1, Math.floor(width * 0.8));
+          height = Math.max(1, Math.floor(height * 0.8));
+          if (width === 1 && height === 1) break;
+        }
+        reject(new Error('Không thể giảm ảnh xuống dưới 200 KB.'));
+      } catch (error) {
+        reject(error);
       } finally {
         URL.revokeObjectURL(objectUrl);
       }
@@ -73,7 +79,7 @@ export async function compressImageForUpload(file) {
 
     image.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      resolve(normalizedFile);
+      reject(new Error('Không thể đọc ảnh để nén.'));
     };
     image.src = objectUrl;
   });

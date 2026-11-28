@@ -7,6 +7,7 @@ import { parseMultipartFormData } from '@/lib/multipart';
 import { createAdminClient } from '@/lib/supabase';
 
 const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const MAX_IMAGE_SIZE_BYTES = 200 * 1024;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SHEET_TITLE_PATTERN = /^Tháng \d{1,2}\/\d{4}$/;
 const HEADERS = [
@@ -232,6 +233,9 @@ export async function PATCH(request) {
       return jsonError(400, 'Danh sách ảnh cần giữ không hợp lệ.');
     }
     const newImages = formData.getAll('images').filter((file) => file && Number(file.size) > 0 && typeof file.arrayBuffer === 'function');
+    if (newImages.some((image) => Number(image.size) > MAX_IMAGE_SIZE_BYTES)) {
+      return jsonError(413, 'Mỗi ảnh chứng từ không được vượt quá 200 KB.');
+    }
 
     if (!DRIVE_ID_PATTERN.test(spreadsheetId) || !SHEET_TITLE_PATTERN.test(sheetTitle) || !Number.isInteger(rowNumber) || rowNumber < 2) {
       return jsonError(400, 'Thông tin dòng nhật ký không hợp lệ.');

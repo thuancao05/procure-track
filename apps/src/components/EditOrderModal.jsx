@@ -120,8 +120,8 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
         const compressedImages = await compressImagesForUpload(files);
         setNewImages((current) => [...current, ...compressedImages]);
       } catch (error) {
-        console.error('Không thể chuyển đổi ảnh HEIC:', error);
-        setError('Không thể đọc ảnh HEIC. Vui lòng thử lại hoặc chuyển ảnh sang JPG/PNG.');
+        console.error('Không thể xử lý ảnh:', error);
+        setError('Không thể giảm một hoặc nhiều ảnh xuống dưới 200 KB. Vui lòng chọn ảnh khác.');
       } finally {
         setCompressingImages(false);
       }
@@ -155,6 +155,9 @@ export default function EditOrderModal({ order, spreadsheetId, sheetTitle, rowNu
       const [optimizedImage] = await compressImagesForUpload([capturedImage]);
       setCameraMessage(`Đã chụp và tối ưu ảnh số ${existingImages.length + newImages.length + 1}.`);
       setNewImages((current) => [...current, optimizedImage]);
+    } catch (error) {
+      console.error('Không thể nén ảnh camera:', error);
+      await showAlert('Không thể giảm ảnh xuống dưới 200 KB. Vui lòng chụp lại.', { variant: 'error' });
     } finally {
       setCompressingImages(false);
     }

@@ -9,6 +9,7 @@ import { createAdminClient } from '@/lib/supabase';
 // ID của Google Drive / Sheets chỉ gồm chữ, số, '-' và '_'.
 // Chặn mọi ký tự khác (đặc biệt là dấu ') để không thể chèn thêm điều kiện vào câu truy vấn q.
 const DRIVE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const MAX_IMAGE_SIZE_BYTES = 200 * 1024;
 
 // Ngày từ <input type="date"> luôn có dạng YYYY-MM-DD.
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -135,6 +136,9 @@ export async function POST(request) {
     const validImages = images.filter((image) => image && Number(image.size) > 0 && typeof image.arrayBuffer === 'function');
     if (validImages.length === 0) {
       return NextResponse.json({ success: false, error: "Vui lòng tải lên hoặc chụp ít nhất một ảnh chứng từ!" }, { status: 400 });
+    }
+    if (validImages.some((image) => Number(image.size) > MAX_IMAGE_SIZE_BYTES)) {
+      return NextResponse.json({ success: false, error: 'Mỗi ảnh chứng từ không được vượt quá 200 KB.' }, { status: 413 });
     }
 
     if (!DATE_PATTERN.test(ngay)) {

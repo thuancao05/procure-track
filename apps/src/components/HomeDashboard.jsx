@@ -580,6 +580,9 @@ export default function HomeDashboard() {
       const [optimizedImage] = await compressImagesForUpload([capturedImage]);
       setCameraMessage(`Đã chụp và tối ưu ảnh số ${images.length + 1}.`);
       setImages((current) => [...current, optimizedImage]);
+    } catch (error) {
+      console.error('Không thể nén ảnh camera:', error);
+      await showAlert('Không thể giảm ảnh xuống dưới 200 KB. Vui lòng chụp lại.', { variant: 'error' });
     } finally {
       setCompressingImages(false);
     }
@@ -597,8 +600,8 @@ export default function HomeDashboard() {
       const compressedImages = await compressImagesForUpload(files);
       setImages((current) => [...current, ...compressedImages]);
     } catch (error) {
-      console.error('Không thể chuyển đổi ảnh HEIC:', error);
-      await showAlert('Không thể đọc ảnh HEIC. Vui lòng thử lại hoặc chuyển ảnh sang JPG/PNG.', { variant: 'error' });
+      console.error('Không thể xử lý ảnh:', error);
+      await showAlert('Không thể giảm một hoặc nhiều ảnh xuống dưới 200 KB. Vui lòng chọn ảnh khác.', { variant: 'error' });
     } finally {
       setCompressingImages(false);
     }
